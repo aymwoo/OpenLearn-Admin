@@ -377,23 +377,45 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
 fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let path = Path::new(&config.local_path);
 
-    if !path.exists() {
-        return Err("本地仓库路径不存在".to_string());
-    }
+    // Auto-clone if path doesn't exist or is not a valid git repo
+    if !path.exists() || !is_valid_git_repo(path) {
+        // Check if remote_url is configured
+        if config.remote_url.trim().is_empty() {
+            return Err("本地仓库路径不存在且未配置 remote_url".to_string());
+        }
 
-    if !path.is_dir() {
-        return Err("本地路径不是有效的目录".to_string());
-    }
+        // Handle existing non-git directory: backup if not empty, then remove
+        if path.exists() && !is_valid_git_repo(path) {
+            let is_empty = fs::read_dir(path)
+                .map_err(|_| "无法读取目录")?
+                .next()
+                .transpose()
+                .map_err(|_| "无法检查目录")?
+                .is_none();
 
-    let is_empty = fs::read_dir(path)
-        .map_err(|_| "无法读取目录")?
-        .next()
-        .transpose()
-        .map_err(|_| "无法检查目录")?
-        .is_none();
+            if !is_empty {
+                let backup_path = format!(
+                    "{}.backup-{}",
+                    &config.local_path,
+                    Local::now().format("%Y-%m-%dT%H-%M-%S")
+                );
+                copy_dir_recursive(path, Path::new(&backup_path))
+                    .map_err(|e| format!("备份失败: {e}"))?;
+            }
+            fs::remove_dir_all(path).map_err(|e| format!("清理目录失败: {e}"))?;
+        }
 
-    if is_empty {
-        return Err("本地路径是空文件夹，请先克隆仓库".to_string());
+        // Clone the repository
+        let branch = default_branch(&config.branch).to_string();
+        git2::build::RepoBuilder::new()
+            .branch(&branch)
+            .fetch_options({
+                let mut options = FetchOptions::new();
+                options.remote_callbacks(remote_callbacks());
+                options
+            })
+            .clone(&config.remote_url, path)
+            .map_err(|e| format!("自动克隆仓库失败: {e}"))?;
     }
 
     ensure_config(config)?;
