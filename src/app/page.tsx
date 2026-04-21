@@ -9,6 +9,7 @@ import {
   type RepoSyncStatus,
   type VersionDetails,
   getDashboardData,
+  getRemoteStatus,
   listenPullProgress,
   loadConfig,
   runSmartPull,
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [remoteExpanded, setRemoteExpanded] = useState(false);
+  const [remoteStatus, setRemoteStatus] = useState<{ ahead: number; behind: number; lastCommitTime: string } | null>(null);
 
   const applyDashboardData = (data: DashboardData) => {
     setStatus(data.status);
@@ -48,6 +50,12 @@ export default function Dashboard() {
           return;
         }
         applyDashboardData(data);
+
+        // Get ahead/behind/lastCommitTime
+        const rs = await getRemoteStatus(cfg.localPath);
+        if (mounted) {
+          setRemoteStatus(rs);
+        }
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
         if (errMsg.includes("空文件夹") || errMsg.includes("请先克隆") || errMsg.includes("不是有效的 Git")) {
@@ -59,6 +67,8 @@ export default function Dashboard() {
               remoteVersion: undefined,
             });
             setMessage('本地仓库未初始化，请点击"一键抓取"自动克隆仓库');
+            const rs = await getRemoteStatus(cfg.localPath);
+            if (mounted) setRemoteStatus(rs);
           }
         } else if (mounted) {
           setStatus({
@@ -68,6 +78,8 @@ export default function Dashboard() {
             remoteVersion: undefined,
           });
           setMessage(errMsg);
+          const rs = await getRemoteStatus(cfg.localPath);
+          if (mounted) setRemoteStatus(rs);
         }
       }
     };
@@ -103,6 +115,9 @@ export default function Dashboard() {
 
       const data = await getDashboardData(config);
       applyDashboardData(data);
+
+      const rs = await getRemoteStatus(config.localPath);
+      setRemoteStatus(rs);
     } catch (error) {
       const nextMessage = error instanceof Error ? error.message : String(error);
       setMessage(nextMessage);
@@ -111,6 +126,9 @@ export default function Dashboard() {
         stage: 'error',
         label: nextMessage,
       }));
+
+      const rs = await getRemoteStatus(config.localPath);
+      setRemoteStatus(rs);
     } finally {
       setLoading(false);
     }
@@ -143,6 +161,13 @@ export default function Dashboard() {
             <p>远端: {config.remoteUrl}</p>
             <p>本地: {config.localPath}</p>
             <p>分支: {status?.currentBranch ?? config.branch}</p>
+            {remoteStatus && (
+              <>
+                <p>领先: {remoteStatus.ahead} commits</p>
+                <p>落后: {remoteStatus.behind} commits</p>
+                <p>最后提交: {remoteStatus.lastCommitTime}</p>
+              </>
+            )}
           </div>
         </div>
 
