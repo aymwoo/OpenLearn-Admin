@@ -581,21 +581,45 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
     let repo = open_repo(&path.to_string_lossy())?;
     let branch = get_head_branch(&repo)?;
     fetch_branch(&repo, &branch)?;
+
     let local_oid = repo
         .head()
         .map_err(|e| e.to_string())?
         .target()
         .unwrap_or(Oid::zero());
-    let remote_oid = repo
-        .find_reference(&format!("refs/remotes/origin/{branch}"))
-        .map_err(|e| e.to_string())?
-        .target()
-        .unwrap_or(Oid::zero());
+
+    // 尝试多个remote reference路径
+    let remote_oid = match repo.find_reference(&format!("refs/remotes/origin/{branch}")) {
+        Ok(reference) => reference.target().unwrap_or(Oid::zero()),
+        Err(_) => {
+            // 尝试远端默认分支路径
+            match repo.find_reference("refs/remotes/origin/HEAD") {
+                Ok(reference) => reference.target().unwrap_or(Oid::zero()),
+                Err(e) => {
+                    log::warn!("无法找到远端引用 origin/{}: {}", branch, e);
+                    Oid::zero()
+                }
+            }
+        }
+    };
+
+    log::info!(
+        "git_status: branch={}, local_oid={}, remote_oid={}",
+        branch,
+        local_oid,
+        remote_oid
+    );
 
     let (ahead, behind) = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
         repo.graph_ahead_behind(local_oid, remote_oid)
             .map_err(|e| e.to_string())?
     } else {
+        if local_oid == Oid::zero() {
+            log::warn!("git_status: local_oid 为空");
+        }
+        if remote_oid == Oid::zero() {
+            log::warn!("git_status: remote_oid 为空，可能是远端引用未找到");
+        }
         (0, 0)
     };
 
