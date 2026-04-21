@@ -9,7 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/home/wuxf/Develop/openlearnadmin/src',
+      '@': '/app/src',
     },
   },
 });
