@@ -212,9 +212,9 @@ export default function Dashboard() {
               <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
                   <span className="material-symbols-outlined">cloud_done</span>
               </button>
-              <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
+              <Link href="/settings" className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
                   <span className="material-symbols-outlined">settings</span>
-              </button>
+              </Link>
             </div>
             <div className="flex space-x-3">
               <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
