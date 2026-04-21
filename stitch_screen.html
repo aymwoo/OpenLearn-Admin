@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumina OS - 控制中心</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "background": "#f7f9fb",
+                        "surface-bright": "#f7f9fb",
+                        "outline": "#727784",
+                        "on-primary-fixed": "#001a41",
+                        "tertiary": "#514059",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-tint": "#015ac1",
+                        "on-secondary-container": "#596576",
+                        "tertiary-fixed-dim": "#d6bfde",
+                        "secondary-fixed": "#d7e3f8",
+                        "on-surface-variant": "#424753",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#d7e3f8",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-high": "#e6e8ea",
+                        "on-background": "#191c1e",
+                        "on-tertiary-fixed": "#25162d",
+                        "tertiary-fixed": "#f3dafb",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "surface-container": "#eceef0",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container-low": "#f2f4f6",
+                        "inverse-surface": "#2d3133",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#3c4858",
+                        "primary-container": "#005ac1",
+                        "on-tertiary-container": "#e8cfef",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#6a5772",
+                        "outline-variant": "#c2c6d5",
+                        "on-tertiary-fixed-variant": "#52405a",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#004494",
+                        "on-primary": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "primary": "#004394",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-surface": "#191c1e",
+                        "on-primary-container": "#c8d8ff",
+                        "secondary-fixed-dim": "#bbc7db",
+                        "secondary": "#535f70",
+                        "surface-variant": "#e0e3e5",
+                        "on-secondary-fixed": "#101c2b",
+                        "inverse-primary": "#adc6ff"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "label": ["Manrope", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- App Container -->
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 bg-[#f7f9fb] dark:bg-slate-950 flex flex-col h-full p-4 space-y-6 border-r-0 z-20">
+<!-- Header/Brand -->
+<div class="flex items-center space-x-3 px-2 py-4">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-primary font-bold">memory</span>
+</div>
+<div>
+<h1 class="text-xl font-black text-[#004394] dark:text-blue-500 font-headline tracking-tight">Command Center</h1>
+<p class="text-xs text-on-surface-variant font-label">v4.2.1 Stable</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 space-y-2">
+<a class="flex items-center space-x-3 px-4 py-3 bg-[#ffffff] dark:bg-slate-800 text-[#004394] dark:text-blue-300 rounded-xl shadow-sm font-['Manrope'] text-sm font-semibold active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-['Manrope'] text-sm font-semibold active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">folder_managed</span>
+<span>Repositories</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-['Manrope'] text-sm font-semibold active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span>Metrics</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-['Manrope'] text-sm font-semibold active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span>Terminal</span>
+</a>
+</div>
+<!-- Footer Section -->
+<div class="space-y-4 pt-4 border-t-0 before:content-[''] before:block before:w-full before:h-px before:bg-surface-container-high before:mb-4">
+<button class="w-full flex items-center justify-center space-x-2 bg-primary text-on-primary py-2.5 px-4 rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_12px_40px_rgba(0,67,148,0.08)]">
+<span class="material-symbols-outlined text-sm">update</span>
+<span>System Update</span>
+</button>
+<div class="space-y-1">
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-['Manrope'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined">history_edu</span>
+<span>Logs</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 flex flex-col h-screen overflow-hidden bg-background">
+<!-- TopNavBar (Simplified for Dashboard integration, matching JSON structure conceptually) -->
+<header class="flex justify-between items-center w-full px-8 py-4 backdrop-blur-xl bg-opacity-85 bg-[#f7f9fb] dark:bg-slate-950 shadow-[0_12px_40px_rgba(0,67,148,0.08)] z-10 docked full-width top-0 sticky">
+<div class="flex items-center space-x-4">
+<h2 class="font-['Manrope'] text-lg font-bold tracking-tight text-[#004394] dark:text-blue-400">系统概览</h2>
+<div class="flex items-center space-x-2 bg-surface-container-lowest px-3 py-1.5 rounded-full outline outline-1 outline-outline-variant/15">
+<div class="w-2.5 h-2.5 rounded-full bg-surface-tint shadow-[0_0_8px_rgba(1,90,193,0.5)]"></div>
+<span class="text-xs font-semibold text-on-surface">系统正常</span>
+</div>
+</div>
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-3">
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
+<span class="material-symbols-outlined">database</span>
+</button>
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
+<span class="material-symbols-outlined">cloud_done</span>
+</button>
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="flex space-x-3">
+<button class="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors">
+                            Stop Service
+                        </button>
+<button class="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)]">
+                            Start Service
+                        </button>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20">
+<img alt="Admin User" class="w-full h-full object-cover" data-alt="close up headshot of a professional man wearing a dark blue button down shirt smiling slightly against a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAZgfAE0QOCAke7PmEcvwl9bsxZK0buVEeVSXLbFTG4fkY5apCa_u0nWqVFEegTRRbY3f2O_4VBGkuE1tuLm1Eo84bqDY1_49RiQSKindjAxzxrfSEYMcpENnPmF42Xq8AEGLLAhYMgBY5tJHFRaphiyW_A0lqLfa0UhqFOZm67DwzDkEqp2CJ5388H6DPpelpvArnco8J6_tTgaH2ZaN0t9leVsZ6yv2cSp4cKYYYD3rDFAjuvopMlR1U6UklBZYlyxAOrBocAcA"/>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-8 space-y-6">
+<!-- Top Status Cards Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Overall Status -->
+<div class="col-span-1 md:col-span-2 bg-gradient-to-br from-primary to-primary-container rounded-xl p-8 text-on-primary relative overflow-hidden shadow-[0_12px_40px_rgba(0,67,148,0.08)]">
+<div class="relative z-10 flex justify-between items-center h-full">
+<div>
+<p class="text-sm font-semibold opacity-80 mb-2">系统状态</p>
+<h3 class="text-4xl md:text-5xl font-headline font-bold tracking-tight mb-2">98% 优化</h3>
+<p class="text-on-primary-container text-sm">所有核心服务正在最佳状态运行。</p>
+</div>
+<!-- Custom Progress Ring Conceptual -->
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 100 100">
+<circle cx="50" cy="50" fill="none" r="40" stroke="rgba(255,255,255,0.2)" stroke-width="8"></circle>
+<circle class="transition-all duration-1000 ease-out" cx="50" cy="50" fill="none" r="40" stroke="#ffffff" stroke-dasharray="251.2" stroke-dashoffset="5.024" stroke-width="8"></circle>
+</svg>
+<span class="absolute text-2xl font-bold">98</span>
+</div>
+</div>
+</div>
+<!-- Version Info -->
+<div class="bg-surface-container-lowest rounded-xl p-6 flex flex-col justify-center space-y-4 shadow-sm outline outline-1 outline-outline-variant/15">
+<div>
+<p class="text-xs text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">本地版本</p>
+<div class="flex items-baseline space-x-2">
+<span class="text-2xl font-bold text-on-surface font-headline">v4.2.1</span>
+<span class="text-xs text-surface-tint font-semibold">稳定版</span>
+</div>
+</div>
+<div class="h-px w-full bg-surface-container-low"></div>
+<div>
+<p class="text-xs text-on-surface-variant font-semibold mb-1 uppercase tracking-wider">远程版本</p>
+<div class="flex items-baseline space-x-2">
+<span class="text-2xl font-bold text-on-surface font-headline">v4.2.2</span>
+<span class="text-xs text-[#ba1a1a] font-semibold">可用更新</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Middle Section: Repo & Metrics Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+<!-- Repositories Compact Card -->
+<div class="xl:col-span-1 bg-surface-container-lowest rounded-xl p-6 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col h-full">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline font-bold text-primary text-lg">代码仓库状态</h3>
+<button class="text-surface-tint hover:bg-surface-container-low p-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-xl">sync</span>
+</button>
+</div>
+<div class="flex-1 flex flex-col space-y-4">
+<!-- Repo Item -->
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-xl">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">code</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-on-surface">core-engine</p>
+<p class="text-xs text-on-surface-variant">master • 最新</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-surface-tint text-lg">check_circle</span>
+</div>
+<!-- Repo Item -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">api</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-on-surface">api-gateway</p>
+<p class="text-xs text-on-surface-variant">staging • 1 提交落后</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-[#ba1a1a] text-lg">error</span>
+</div>
+<!-- Repo Item -->
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-xl">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">web</span>
+</div>
+<div>
+<p class="font-semibold text-sm text-on-surface">ui-frontend</p>
+<p class="text-xs text-on-surface-variant">main • 同步中</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-surface-tint text-lg animate-spin">sync</span>
+</div>
+</div>
+<button class="mt-4 w-full py-2 border border-outline-variant/30 rounded-xl text-sm font-semibold text-primary hover:bg-surface-container-low transition-colors">
+                            查看所有仓库
+                        </button>
+</div>
+<!-- Server Monitoring Grid -->
+<div class="xl:col-span-2 grid grid-cols-2 lg:grid-cols-3 gap-4">
+<!-- Uptime -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 col-span-2 lg:col-span-1 flex flex-col justify-center relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-9xl text-emerald-500">schedule</span>
+</div>
+<p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">系统正常运行时间</p>
+<h4 class="text-3xl font-headline font-bold text-on-surface">45 <span class="text-lg text-on-surface-variant font-semibold">天</span></h4>
+<p class="text-xs text-on-surface-variant mt-2">自上次重启</p>
+</div>
+<!-- Database Size -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+<div class="flex items-center space-x-2 mb-2">
+<span class="material-symbols-outlined text-amber-500 text-sm">database</span>
+<p class="text-sm font-semibold text-amber-600 dark:text-amber-400">数据库大小</p>
+</div>
+<h4 class="text-2xl font-headline font-bold text-on-surface mb-1">1.4 <span class="text-sm text-on-surface-variant font-semibold">TB</span></h4>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+<div class="bg-amber-500 h-1.5 rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<!-- CPU Usage -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+<div class="flex items-center space-x-2 mb-2">
+<span class="material-symbols-outlined text-rose-500 text-sm">memory</span>
+<p class="text-sm font-semibold text-rose-600 dark:text-rose-400">CPU 使用率</p>
+</div>
+<div class="flex items-baseline space-x-1 mb-1">
+<h4 class="text-2xl font-headline font-bold text-on-surface">42%</h4>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+<div class="bg-rose-500 h-1.5 rounded-full" style="width: 42%"></div>
+</div>
+</div>
+<!-- Memory Usage -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+<div class="flex items-center space-x-2 mb-2">
+<span class="material-symbols-outlined text-purple-500 text-sm">memory_alt</span>
+<p class="text-sm font-semibold text-purple-600 dark:text-purple-400">内存使用情况</p>
+</div>
+<h4 class="text-2xl font-headline font-bold text-on-surface mb-1">64 <span class="text-sm text-on-surface-variant font-semibold">GB</span></h4>
+<p class="text-xs text-on-surface-variant mt-1">/ 128 GB 总计</p>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+<div class="bg-purple-500 h-1.5 rounded-full" style="width: 50%"></div>
+</div>
+</div>
+<!-- Disk Space -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-2 lg:col-span-2">
+<div class="flex justify-between items-center mb-4">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
+<p class="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
+</div>
+<p class="text-xs font-semibold text-on-surface-variant">10 TB 总计</p>
+</div>
+<div class="flex items-end justify-between mb-2">
+<h4 class="text-3xl font-headline font-bold text-on-surface">4.2 <span class="text-base text-on-surface-variant font-semibold">TB 可用</span></h4>
+<span class="text-sm font-semibold text-on-surface">58% 已用</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-2 mt-1">
+<div class="bg-cyan-500 h-2 rounded-full" style="width: 58%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Terminal Console Bottom Area -->
+<div class="bg-inverse-surface rounded-xl p-4 shadow-sm h-64 flex flex-col font-mono text-sm relative overflow-hidden">
+<div class="flex items-center justify-between mb-3 border-b border-outline/30 pb-2">
+<div class="flex space-x-2">
+<div class="w-3 h-3 rounded-full bg-[#ba1a1a]"></div>
+<div class="w-3 h-3 rounded-full bg-[#fbbc04]"></div>
+<div class="w-3 h-3 rounded-full bg-[#34a853]"></div>
+</div>
+<p class="text-outline text-xs tracking-wider">SYSTEM_TERMINAL</p>
+</div>
+<div class="flex-1 overflow-y-auto text-outline-variant space-y-1">
+<p><span class="text-surface-tint">[INFO]</span> 2023-10-27 14:32:01 - System optimization routine initiated.</p>
+<p><span class="text-surface-tint">[INFO]</span> 2023-10-27 14:32:05 - Cache cleared successfully (245MB freed).</p>
+<p><span class="text-[#34a853]">[SUCCESS]</span> 2023-10-27 14:32:10 - Core services synchronized with upstream.</p>
+<p><span class="text-[#fbbc04]">[WARN]</span> 2023-10-27 14:35:22 - High latency detected on node-3. Attempting failover...</p>
+<p><span class="text-[#34a853]">[SUCCESS]</span> 2023-10-27 14:35:28 - Traffic rerouted to node-4. Stability restored.</p>
+<p class="mt-2 text-on-primary">user@lumina-os:~$ <span class="animate-pulse">_</span></p>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
