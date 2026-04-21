@@ -1,4 +1,8 @@
 use std::{fs, path::Path};
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader};
+use std::thread;
+use std::sync::Mutex;
 
 use chrono::{DateTime, Local};
 use git2::{
@@ -1054,6 +1058,63 @@ fn setup_graphics_workarounds() {
         if env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
             env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         }
+    }
+}
+
+#[command]
+fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Result<String, String> {
+    let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
+    if child_guard.is_some() {
+        return Err("Service is already running".to_string());
+    }
+
+    // Attempt to run npm run dev or a script
+    let mut child = Command::new("bash")
+        .arg("-c")
+        .arg("npm run dev")
+        .current_dir(&path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start service: {}", e))?;
+
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    
+    let w1 = window.clone();
+    thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                let _ = w1.emit("service-log", l);
+            }
+        }
+        let _ = w1.emit("service-log", "[PROCESS EXITED]".to_string());
+    });
+
+    let w2 = window.clone();
+    thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                let _ = w2.emit("service-log", format!("[ERROR] {}", l));
+            }
+        }
+    });
+
+    *child_guard = Some(child);
+    Ok("Service started".to_string())
+}
+
+#[command]
+fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
+    let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
+    if let Some(mut child) = child_guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+        Ok("Service stopped".to_string())
+    } else {
+        Err("No service running".to_string())
     }
 }
 
