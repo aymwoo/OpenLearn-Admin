@@ -87,7 +87,7 @@ fn extract_version(content: &str) -> Result<String, String> {
 
 fn split_sections(content: &str) -> Vec<String> {
     let mut sections = Vec::new();
-    let mut current = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -100,7 +100,7 @@ fn split_sections(content: &str) -> Vec<String> {
         }
 
         if !trimmed.is_empty() || !current.is_empty() {
-            current.push(line.to_string());
+            current.push(line);
         }
     }
 
