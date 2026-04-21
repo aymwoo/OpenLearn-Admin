@@ -48,14 +48,25 @@ export default function Dashboard() {
         }
         applyDashboardData(data);
       } catch (error) {
-        if (mounted) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        if (errMsg.contains("空文件夹") || errMsg.contains("请先克隆") || errMsg.includes("不是有效的 Git")) {
+          if (mounted) {
+            setStatus({
+              currentBranch: cfg.branch,
+              hasUpdates: false,
+              localVersion: undefined,
+              remoteVersion: undefined,
+            });
+            setMessage('本地仓库未初始化，请点击"一键抓取"自动克隆仓库');
+          }
+        } else if (mounted) {
           setStatus({
             currentBranch: cfg.branch,
             hasUpdates: false,
             localVersion: undefined,
             remoteVersion: undefined,
           });
-          setMessage(error instanceof Error ? error.message : '读取仓库信息失败');
+          setMessage(errMsg);
         }
       }
     };
