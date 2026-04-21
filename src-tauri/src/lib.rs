@@ -1,10 +1,52 @@
 use std::{fs, path::Path};
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader};
+use std::thread;
+use std::sync::Mutex;
 
 use chrono::{DateTime, Local};
 use git2::{
     build::CheckoutBuilder, AnnotatedCommit, Cred, FetchOptions, Oid, RemoteCallbacks, Repository,
 };
 use serde::{Deserialize, Serialize};
+
+use std::sync::Mutex;
+use sysinfo::{System, Disks};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SystemInfo {
+    uptime: u64,
+    cpu_usage: f32,
+    memory_total: u64,
+    memory_used: u64,
+    disk_total: u64,
+    disk_available: u64,
+}
+
+#[tauri::command]
+fn get_system_info(state: tauri::State<'_, Mutex<System>>) -> Result<SystemInfo, String> {
+    let mut sys = state.lock().map_err(|e| format!("锁错误: {}", e))?;
+    sys.refresh_all();
+
+    let disks = Disks::new_with_refreshed_list();
+    let mut disk_total = 0;
+    let mut disk_available = 0;
+    for disk in disks.list() {
+        disk_total += disk.total_space();
+        disk_available += disk.available_space();
+    }
+
+    Ok(SystemInfo {
+        uptime: System::uptime(),
+        cpu_usage: sys.global_cpu_usage(),
+        memory_total: sys.total_memory(),
+        memory_used: sys.used_memory(),
+        disk_total,
+        disk_available,
+    })
+}
+
 use tauri::{command, Emitter, Window};
 
 const PROGRESS_EVENT: &str = "pull-progress";
@@ -87,7 +129,7 @@ fn extract_version(content: &str) -> Result<String, String> {
 
 fn split_sections(content: &str) -> Vec<String> {
     let mut sections = Vec::new();
-    let mut current = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -100,7 +142,7 @@ fn split_sections(content: &str) -> Vec<String> {
         }
 
         if !trimmed.is_empty() || !current.is_empty() {
-            current.push(line.to_string());
+            current.push(line);
         }
     }
 
@@ -1019,10 +1061,68 @@ fn setup_graphics_workarounds() {
     }
 }
 
+#[command]
+fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Result<String, String> {
+    let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
+    if child_guard.is_some() {
+        return Err("Service is already running".to_string());
+    }
+
+    // Attempt to run npm run dev or a script
+    let mut child = Command::new("bash")
+        .arg("-c")
+        .arg("npm run dev")
+        .current_dir(&path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start service: {}", e))?;
+
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    
+    let w1 = window.clone();
+    thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                let _ = w1.emit("service-log", l);
+            }
+        }
+        let _ = w1.emit("service-log", "[PROCESS EXITED]".to_string());
+    });
+
+    let w2 = window.clone();
+    thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                let _ = w2.emit("service-log", format!("[ERROR] {}", l));
+            }
+        }
+    });
+
+    *child_guard = Some(child);
+    Ok("Service started".to_string())
+}
+
+#[command]
+fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
+    let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
+    if let Some(mut child) = child_guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+        Ok("Service stopped".to_string())
+    } else {
+        Err("No service running".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     setup_graphics_workarounds();
     tauri::Builder::default()
+        .manage(Mutex::new(System::new_all()))
         .invoke_handler(tauri::generate_handler![
             git_clone,
             git_pull,
@@ -1031,6 +1131,7 @@ pub fn run() {
             git_backup,
             get_dashboard_data,
             run_smart_pull,
+            get_system_info,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
