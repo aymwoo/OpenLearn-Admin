@@ -38,6 +38,7 @@ struct VersionDetails {
     branch: Option<String>,
     last_fetched_at: Option<String>,
     changelog_section: Option<String>,
+    changelog_diff: Option<String>,
     source: String,
 }
 
@@ -132,6 +133,28 @@ fn find_changelog_section(content: &str, version: &str) -> Result<String, String
         .first()
         .cloned()
         .ok_or_else(|| "更新日志为空".to_string())
+}
+
+fn compute_changelog_diff(local: &str, remote: &str) -> Option<String> {
+    let local_trimmed = local.trim();
+    let remote_trimmed = remote.trim();
+
+    if remote_trimmed.is_empty() {
+        return None;
+    }
+
+    // 如果远端包含本地内容，说明本地已有，返回远端多出的新增部分
+    if remote_trimmed.contains(local_trimmed) {
+        let diff_start = remote_trimmed.find(local_trimmed)? + local_trimmed.len();
+        let diff = remote_trimmed[diff_start..].trim();
+        if diff.is_empty() {
+            return None;
+        }
+        return Some(diff.to_string());
+    }
+
+    // 否则返回完整的远端内容(可能是全新内容)
+    Some(remote_trimmed.to_string())
 }
 
 fn versions_differ(local: &str, remote: &str) -> bool {
@@ -246,6 +269,7 @@ fn build_version_details(
     branch: Option<String>,
     last_fetched_at: Option<String>,
     changelog_section: Option<String>,
+    changelog_diff: Option<String>,
     source: &str,
 ) -> VersionDetails {
     VersionDetails {
@@ -253,6 +277,7 @@ fn build_version_details(
         branch,
         last_fetched_at,
         changelog_section,
+        changelog_diff,
         source: source.to_string(),
     }
 }
@@ -438,6 +463,12 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
     let last_fetched_at = file_timestamp(&config.local_path, &config.version_file_path);
 
+    // 计算远端与本地changelog的差异(新增内容)
+    let changelog_diff = match (&local_section, &remote_section) {
+        (Some(local), Some(remote)) => compute_changelog_diff(local, remote),
+        _ => remote_section.clone(),
+    };
+
     Ok(DashboardData {
         status: build_repo_status(&branch, &local_version, &remote_version),
         local: build_version_details(
@@ -445,6 +476,7 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
             Some(branch.clone()),
             last_fetched_at,
             local_section,
+            None,
             "local",
         ),
         remote: build_version_details(
@@ -452,6 +484,7 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
             Some(default_branch(&config.branch).to_string()),
             None,
             remote_section,
+            changelog_diff,
             "remote",
         ),
     })
@@ -665,9 +698,17 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
                 Some(branch.clone()),
                 None,
                 None,
+                None,
                 "local",
             ),
-            build_version_details("新克隆".to_string(), Some(branch), None, None, "remote"),
+            build_version_details(
+                "新克隆".to_string(),
+                Some(branch),
+                None,
+                None,
+                None,
+                "remote",
+            ),
         ));
     }
 
@@ -694,7 +735,8 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
         remote_version.clone(),
         Some(default_branch(&config.branch).to_string()),
         None,
-        remote_section,
+        remote_section.clone(),
+        remote_section.clone(),
         "remote",
     );
 
@@ -708,6 +750,7 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
             Some(branch),
             file_timestamp(&config.local_path, &config.version_file_path),
             local_section,
+            None,
             "local",
         );
 
@@ -740,6 +783,7 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
         Some(get_head_branch(&repo)?),
         file_timestamp(&config.local_path, &config.version_file_path),
         local_section,
+        None,
         "local",
     );
 
@@ -808,6 +852,7 @@ mod tests {
                 branch: Some("main".to_string()),
                 last_fetched_at: None,
                 changelog_section: None,
+                changelog_diff: None,
                 source: "local".to_string(),
             },
             VersionDetails {
@@ -815,6 +860,7 @@ mod tests {
                 branch: Some("main".to_string()),
                 last_fetched_at: None,
                 changelog_section: None,
+                changelog_diff: None,
                 source: "remote".to_string(),
             },
         );

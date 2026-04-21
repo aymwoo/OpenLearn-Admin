@@ -35,6 +35,7 @@ export interface VersionDetails {
   branch?: string;
   lastFetchedAt?: string;
   changelogSection?: string;
+  changelogDiff?: string;
   source: 'local' | 'remote';
 }
 

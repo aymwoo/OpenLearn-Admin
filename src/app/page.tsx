@@ -22,7 +22,6 @@ export default function Dashboard() {
   const [progress, setProgress] = useState<FetchProgress>({ stage: 'idle', percent: 0, label: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [localExpanded, setLocalExpanded] = useState(false);
   const [remoteExpanded, setRemoteExpanded] = useState(false);
 
   const applyDashboardData = (data: DashboardData) => {
@@ -186,33 +185,19 @@ export default function Dashboard() {
           )}
         </div>
 
-        <section className="grid gap-4 md:grid-cols-2 mb-8">
-          <article className="bg-white rounded-xl p-6 shadow-sm">
-            <h3
-              className="text-base font-semibold text-[#2D3A82] mb-3 cursor-pointer hover:opacity-80"
-              onClick={() => setLocalExpanded(!localExpanded)}
-            >
-              本地当前版本日志 {localExpanded ? '▲' : '▼'}
-            </h3>
-            <textarea
-              readOnly
-              rows={localExpanded ? 20 : 6}
-              className="w-full whitespace-pre-wrap text-sm text-[#566167] font-sans resize-none bg-transparent border-0 focus:outline-none max-h-48 overflow-y-auto"
-              value={localDetails?.changelogSection ?? '暂无日志'}
-            />
-          </article>
+        <section className="mb-8">
           <article className="bg-white rounded-xl p-6 shadow-sm">
             <h3
               className="text-base font-semibold text-[#2D3A82] mb-3 cursor-pointer hover:opacity-80"
               onClick={() => setRemoteExpanded(!remoteExpanded)}
             >
-              远端最新版本日志 {remoteExpanded ? '▲' : '▼'}
+              新增版本日志 {remoteExpanded ? '▲' : '▼'}
             </h3>
             <textarea
               readOnly
               rows={remoteExpanded ? 20 : 6}
-              className="w-full whitespace-pre-wrap text-sm text-[#566167] font-sans resize-none bg-transparent border-0 focus:outline-none max-h-48 overflow-y-auto"
-              value={remoteDetails?.changelogSection ?? '暂无日志'}
+              className="w-full whitespace-pre-wrap text-base text-[#566167] font-sans resize-none bg-transparent border-0 focus:outline-none max-h-48 overflow-y-auto"
+              value={remoteDetails?.changelogDiff ?? remoteDetails?.changelogSection ?? '暂无日志'}
             />
           </article>
         </section>
