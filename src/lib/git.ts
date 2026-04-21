@@ -103,12 +103,12 @@ export async function pullRepo(path: string, force: boolean = false): Promise<{ 
   }
 }
 
-export async function getRemoteStatus(path: string): Promise<{ hasUpdates: boolean; behind: number; branch: string }> {
+export async function getRemoteStatus(path: string): Promise<{ hasUpdates: boolean; ahead: number; behind: number; branch: string; lastCommitTime: string }> {
   try {
-    const result = await invoke<{ branch: string; hasUpdates: boolean; behind: number }>('git_status', { path });
+    const result = await invoke<{ branch: string; hasUpdates: boolean; ahead: number; behind: number; lastCommitTime: string }>('git_status', { path });
     return result;
   } catch {
-    return { hasUpdates: false, behind: 0, branch: 'main' };
+    return { hasUpdates: false, ahead: 0, behind: 0, branch: 'main', lastCommitTime: 'Unknown' };
   }
 }
 

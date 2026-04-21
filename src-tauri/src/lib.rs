@@ -592,19 +592,33 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         .target()
         .unwrap_or(Oid::zero());
 
-    let behind = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
-        let (_ahead, behind) = repo
-            .graph_ahead_behind(local_oid, remote_oid)
-            .map_err(|e| e.to_string())?;
-        behind
+    let (ahead, behind) = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
+        repo.graph_ahead_behind(local_oid, remote_oid)
+            .map_err(|e| e.to_string())?
     } else {
-        0
+        (0, 0)
     };
+
+    // 获取最后提交时间
+    let last_commit_time = repo
+        .head()
+        .ok()
+        .and_then(|h| h.target())
+        .and_then(|oid| repo.find_commit(oid).ok())
+        .map(|commit| {
+            let timestamp = commit.time().seconds();
+            let datetime = chrono::DateTime::from_timestamp(timestamp, 0)
+                .unwrap_or_else(|| chrono::Utc::now().into());
+            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+        })
+        .unwrap_or_else(|| "Unknown".to_string());
 
     Ok(serde_json::json!({
         "branch": branch,
         "hasUpdates": behind > 0,
+        "ahead": ahead,
         "behind": behind,
+        "lastCommitTime": last_commit_time,
     }))
 }
 
