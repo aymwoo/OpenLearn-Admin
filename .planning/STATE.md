@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-21 - Completed quick task 260421-uxn: 修复ahead behind计算不准确问题
+2026-04-21 - Completed quick task 260421-v2i: 使用merge_analysis改进ahead/behind计算
 
 ---
 
@@ -15,6 +15,7 @@
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260421-v2i | 使用merge_analysis改进ahead/behind计算 | 2026-04-21 | 8ffd7e8 | [260421-v2i-merge-analysis-ahead-behind](./quick/260421-v2i-merge-analysis-ahead-behind/) |
 | 260421-uxn | 修复ahead behind计算不准确问题 | 2026-04-21 | 9103747 | [260421-uxn-ahead-behind](./quick/260421-uxn-ahead-behind/) |
 | 260421-ub0 | 添加ahead behind lastCommitTime显示 | 2026-04-21 | b6ec63f | [260421-ub0-ahead-behind-lastcommittime](./quick/260421-ub0-ahead-behind-lastcommittime/) |
 | 260421-u72 | 添加git分支比较显示领先落后提交数等信息 | 2026-04-21 | e4502a1 | [260421-u72-git](./quick/260421-u72-git/) |
