@@ -42,8 +42,10 @@ describe('Settings', () => {
     await waitFor(() => {
       const stored = localStorage.getItem('git-updater-config');
 
-
-
+      expect(stored).not.toBeNull();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.versionFilePath).toBe('custom/release.log');
+      expect(parsed.changelogFilePath).toBe('docs/CHANGELOG.md');
     });
   });
 });
