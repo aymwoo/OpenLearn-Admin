@@ -1,7 +1,9 @@
 use std::{fs, path::Path};
 
 use chrono::{DateTime, Local};
-use git2::{build::CheckoutBuilder, AnnotatedCommit, Cred, FetchOptions, Oid, RemoteCallbacks, Repository};
+use git2::{
+    build::CheckoutBuilder, AnnotatedCommit, Cred, FetchOptions, Oid, RemoteCallbacks, Repository,
+};
 use serde::{Deserialize, Serialize};
 use tauri::{command, Emitter, Window};
 
@@ -88,7 +90,8 @@ fn split_sections(content: &str) -> Vec<String> {
 
     for line in content.lines() {
         let trimmed = line.trim();
-        let starts_new_section = trimmed.starts_with("20") && trimmed.len() >= 10 && trimmed.chars().nth(4) == Some('-');
+        let starts_new_section =
+            trimmed.starts_with("20") && trimmed.len() >= 10 && trimmed.chars().nth(4) == Some('-');
 
         if starts_new_section && !current.is_empty() {
             sections.push(current.join("\n").trim().to_string());
@@ -104,7 +107,10 @@ fn split_sections(content: &str) -> Vec<String> {
         sections.push(current.join("\n").trim().to_string());
     }
 
-    sections.into_iter().filter(|section| !section.is_empty()).collect()
+    sections
+        .into_iter()
+        .filter(|section| !section.is_empty())
+        .collect()
 }
 
 fn find_changelog_section(content: &str, version: &str) -> Result<String, String> {
@@ -199,7 +205,11 @@ fn read_worktree_file(repo_root: &str, relative_path: &str) -> Result<String, St
     fs::read_to_string(&full_path).map_err(|e| format!("读取文件失败 {}: {e}", full_path.display()))
 }
 
-fn read_remote_file(repo: &Repository, branch: &str, relative_path: &str) -> Result<String, String> {
+fn read_remote_file(
+    repo: &Repository,
+    branch: &str,
+    relative_path: &str,
+) -> Result<String, String> {
     let branch = default_branch(branch);
     let remote_ref = repo
         .find_reference(&format!("refs/remotes/origin/{branch}"))
@@ -207,7 +217,9 @@ fn read_remote_file(repo: &Repository, branch: &str, relative_path: &str) -> Res
     let commit = remote_ref
         .peel_to_commit()
         .map_err(|e| format!("读取远端提交失败: {e}"))?;
-    let tree = commit.tree().map_err(|e| format!("读取远端 tree 失败: {e}"))?;
+    let tree = commit
+        .tree()
+        .map_err(|e| format!("读取远端 tree 失败: {e}"))?;
     let entry = tree
         .get_path(Path::new(relative_path))
         .map_err(|e| format!("远端文件不存在 {}: {e}", relative_path))?;
@@ -245,7 +257,11 @@ fn build_version_details(
     }
 }
 
-fn build_repo_status(current_branch: &str, local_version: &str, remote_version: &str) -> RepoSyncStatus {
+fn build_repo_status(
+    current_branch: &str,
+    local_version: &str,
+    remote_version: &str,
+) -> RepoSyncStatus {
     RepoSyncStatus {
         current_branch: current_branch.to_string(),
         has_updates: versions_differ(local_version, remote_version),
@@ -254,7 +270,13 @@ fn build_repo_status(current_branch: &str, local_version: &str, remote_version: 
     }
 }
 
-fn build_pull_result(updated: bool, skipped: bool, message: &str, local: VersionDetails, remote: VersionDetails) -> PullResult {
+fn build_pull_result(
+    updated: bool,
+    skipped: bool,
+    message: &str,
+    local: VersionDetails,
+    remote: VersionDetails,
+) -> PullResult {
     PullResult {
         updated,
         skipped,
@@ -285,7 +307,7 @@ fn fast_forward(repo: &Repository, branch: &str, force: bool) -> Result<(), Stri
     match repo.find_reference(&reference_name) {
         Ok(mut reference) => {
             reference
-            .set_target(target_oid, "fast-forward")
+                .set_target(target_oid, "fast-forward")
                 .map_err(|e| format!("更新本地分支失败: {e}"))?;
         }
         Err(_) => {
@@ -304,7 +326,10 @@ fn fast_forward(repo: &Repository, branch: &str, force: bool) -> Result<(), Stri
         .map_err(|e| format!("更新工作区失败: {e}"))
 }
 
-fn find_remote_commit<'repo>(repo: &'repo Repository, branch: &str) -> Result<AnnotatedCommit<'repo>, String> {
+fn find_remote_commit<'repo>(
+    repo: &'repo Repository,
+    branch: &str,
+) -> Result<AnnotatedCommit<'repo>, String> {
     let reference = repo
         .find_reference(&format!("refs/remotes/origin/{}", default_branch(branch)))
         .map_err(|e| format!("找不到远端分支: {e}"))?;
@@ -323,9 +348,12 @@ fn backup_repo_dir(source_path: &str) -> Result<String, String> {
 }
 
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
-    fs::create_dir_all(target).map_err(|e| format!("创建备份目录失败 {}: {e}", target.display()))?;
+    fs::create_dir_all(target)
+        .map_err(|e| format!("创建备份目录失败 {}: {e}", target.display()))?;
 
-    for entry in fs::read_dir(source).map_err(|e| format!("读取目录失败 {}: {e}", source.display()))? {
+    for entry in
+        fs::read_dir(source).map_err(|e| format!("读取目录失败 {}: {e}", source.display()))?
+    {
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
         let target_path = target.join(entry.file_name());
@@ -333,8 +361,13 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
         if path.is_dir() {
             copy_dir_recursive(&path, &target_path)?;
         } else {
-            fs::copy(&path, &target_path)
-                .map_err(|e| format!("复制文件失败 {} -> {}: {e}", path.display(), target_path.display()))?;
+            fs::copy(&path, &target_path).map_err(|e| {
+                format!(
+                    "复制文件失败 {} -> {}: {e}",
+                    path.display(),
+                    target_path.display()
+                )
+            })?;
         }
     }
 
@@ -343,11 +376,11 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
 
 fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let path = Path::new(&config.local_path);
-    
+
     if !path.exists() {
         return Err("本地仓库路径不存在".to_string());
     }
-    
+
     if !path.is_dir() {
         return Err("本地路径不是有效的目录".to_string());
     }
@@ -358,7 +391,7 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
         .transpose()
         .map_err(|_| "无法检查目录")?
         .is_none();
-        
+
     if is_empty {
         return Err("本地路径是空文件夹，请先克隆仓库".to_string());
     }
@@ -370,9 +403,12 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let branch = get_head_branch(&repo)?;
 
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
-    let remote_version_content = read_remote_file(&repo, &config.branch, &config.version_file_path)?;
-    let local_changelog_content = read_worktree_file(&config.local_path, &config.changelog_file_path)?;
-    let remote_changelog_content = read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
+    let remote_version_content =
+        read_remote_file(&repo, &config.branch, &config.version_file_path)?;
+    let local_changelog_content =
+        read_worktree_file(&config.local_path, &config.changelog_file_path)?;
+    let remote_changelog_content =
+        read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
 
     let local_version = extract_version(&local_version_content)?;
     let remote_version = extract_version(&remote_version_content)?;
@@ -382,7 +418,13 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
 
     Ok(DashboardData {
         status: build_repo_status(&branch, &local_version, &remote_version),
-        local: build_version_details(local_version, Some(branch.clone()), last_fetched_at, local_section, "local"),
+        local: build_version_details(
+            local_version,
+            Some(branch.clone()),
+            last_fetched_at,
+            local_section,
+            "local",
+        ),
         remote: build_version_details(
             remote_version,
             Some(default_branch(&config.branch).to_string()),
@@ -410,7 +452,7 @@ fn emit_progress(window: &Window, stage: &str, percent: u8, label: &str) -> Resu
 fn git_clone(url: String, path: String, branch: String) -> Result<String, String> {
     let target_path = Path::new(&path);
     let branch = default_branch(&branch).to_string();
-    
+
     if target_path.exists() {
         if !is_valid_git_repo(target_path) {
             let is_empty = fs::read_dir(target_path)
@@ -419,16 +461,20 @@ fn git_clone(url: String, path: String, branch: String) -> Result<String, String
                 .transpose()
                 .map_err(|_| "无法检查目录")?
                 .is_none();
-            
+
             if !is_empty {
-                let backup_path = format!("{}.backup-{}", &path, Local::now().format("%Y-%m-%dT%H-%M-%S"));
+                let backup_path = format!(
+                    "{}.backup-{}",
+                    &path,
+                    Local::now().format("%Y-%m-%dT%H-%M-%S")
+                );
                 copy_dir_recursive(target_path, Path::new(&backup_path))
                     .map_err(|e| format!("备份失败: {e}"))?;
             }
             fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
         }
     }
-    
+
     git2::build::RepoBuilder::new()
         .branch(&branch)
         .fetch_options({
@@ -457,11 +503,11 @@ fn git_pull(path: String, force: bool) -> Result<String, String> {
 #[command]
 fn git_status(path: String) -> Result<serde_json::Value, String> {
     let path = Path::new(&path);
-    
+
     if !path.exists() {
         return Err("本地仓库路径不存在".to_string());
     }
-    
+
     if !path.is_dir() {
         return Err("本地路径不是有效的目录".to_string());
     }
@@ -472,7 +518,7 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         .transpose()
         .map_err(|_| "无法检查目录")?
         .is_none();
-        
+
     if is_empty {
         return Err("本地路径是空文件夹，请先克隆仓库".to_string());
     }
@@ -480,7 +526,11 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
     let repo = open_repo(&path.to_string_lossy())?;
     let branch = get_head_branch(&repo)?;
     fetch_branch(&repo, &branch)?;
-    let local_oid = repo.head().map_err(|e| e.to_string())?.target().unwrap_or(Oid::zero());
+    let local_oid = repo
+        .head()
+        .map_err(|e| e.to_string())?
+        .target()
+        .unwrap_or(Oid::zero());
     let remote_oid = repo
         .find_reference(&format!("refs/remotes/origin/{branch}"))
         .map_err(|e| e.to_string())?
@@ -488,7 +538,9 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         .unwrap_or(Oid::zero());
 
     let behind = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
-        let (_ahead, behind) = repo.graph_ahead_behind(local_oid, remote_oid).map_err(|e| e.to_string())?;
+        let (_ahead, behind) = repo
+            .graph_ahead_behind(local_oid, remote_oid)
+            .map_err(|e| e.to_string())?;
         behind
     } else {
         0
@@ -510,7 +562,10 @@ fn git_branches(path: String) -> Result<Vec<String>, String> {
     let repo = open_repo(&path)?;
     let mut branches = Vec::new();
 
-    for branch in repo.branches(None).map_err(|e| format!("读取分支失败: {e}"))? {
+    for branch in repo
+        .branches(None)
+        .map_err(|e| format!("读取分支失败: {e}"))?
+    {
         let (branch, _) = branch.map_err(|e| e.to_string())?;
         if let Some(name) = branch.name().map_err(|e| e.to_string())? {
             let cleaned = name.strip_prefix("remotes/").unwrap_or(name).to_string();
@@ -540,11 +595,11 @@ fn get_dashboard_data(config: GitConfig) -> Result<DashboardData, String> {
 #[command]
 fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
-    
+
     let target_path = Path::new(&config.local_path);
     if !is_valid_git_repo(target_path) {
         emit_progress(&window, "cloning", 10, "正在准备克隆仓库")?;
-        
+
         if target_path.exists() && !is_valid_git_repo(target_path) {
             let is_empty = fs::read_dir(target_path)
                 .map_err(|_| "无法读取目录")?
@@ -552,16 +607,20 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
                 .transpose()
                 .map_err(|_| "无法检查目录")?
                 .is_none();
-            
+
             if !is_empty {
                 emit_progress(&window, "backup", 20, "正在备份现有目录")?;
-                let backup_path = format!("{}.backup-{}", &config.local_path, Local::now().format("%Y-%m-%dT%H-%M-%S"));
+                let backup_path = format!(
+                    "{}.backup-{}",
+                    &config.local_path,
+                    Local::now().format("%Y-%m-%dT%H-%M-%S")
+                );
                 copy_dir_recursive(target_path, Path::new(&backup_path))
                     .map_err(|e| format!("备份失败: {e}"))?;
             }
             fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
         }
-        
+
         emit_progress(&window, "cloning", 50, "正在克隆仓库")?;
         let branch = default_branch(&config.branch).to_string();
         git2::build::RepoBuilder::new()
@@ -573,11 +632,21 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
             })
             .clone(&config.remote_url, target_path)
             .map_err(|e| format!("克隆仓库失败: {e}"))?;
-        
+
         emit_progress(&window, "done", 100, "克隆完成")?;
-        return Ok(build_pull_result(true, false, "仓库克隆完成", 
-            build_version_details("新克隆".to_string(), Some(branch.clone()), None, None, "local"),
-            build_version_details("新克隆".to_string(), Some(branch), None, None, "remote")));
+        return Ok(build_pull_result(
+            true,
+            false,
+            "仓库克隆完成",
+            build_version_details(
+                "新克隆".to_string(),
+                Some(branch.clone()),
+                None,
+                None,
+                "local",
+            ),
+            build_version_details("新克隆".to_string(), Some(branch), None, None, "remote"),
+        ));
     }
 
     emit_progress(&window, "checking", 10, "检查远端版本")?;
@@ -586,11 +655,13 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
     fetch_branch(&repo, &config.branch)?;
 
     emit_progress(&window, "reading_remote_version", 25, "读取远端版本")?;
-    let remote_version_content = read_remote_file(&repo, &config.branch, &config.version_file_path)?;
+    let remote_version_content =
+        read_remote_file(&repo, &config.branch, &config.version_file_path)?;
     let remote_version = extract_version(&remote_version_content)?;
 
     emit_progress(&window, "reading_remote_changelog", 40, "读取远端更新日志")?;
-    let remote_changelog_content = read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
+    let remote_changelog_content =
+        read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
     let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
 
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
@@ -607,7 +678,8 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
 
     if !versions_differ(&local_version, &remote_version) {
         emit_progress(&window, "done", 100, "当前已是最新版本")?;
-        let local_changelog_content = read_worktree_file(&config.local_path, &config.changelog_file_path)?;
+        let local_changelog_content =
+            read_worktree_file(&config.local_path, &config.changelog_file_path)?;
         let local_section = find_changelog_section(&local_changelog_content, &local_version).ok();
         let local_details = build_version_details(
             local_version,
@@ -617,7 +689,13 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
             "local",
         );
 
-        return Ok(build_pull_result(false, true, "当前已是最新版本", local_details, remote_details));
+        return Ok(build_pull_result(
+            false,
+            true,
+            "当前已是最新版本",
+            local_details,
+            remote_details,
+        ));
     }
 
     if config.backup_before_pull {
@@ -631,8 +709,10 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
     emit_progress(&window, "refreshing_local", 90, "刷新本地版本信息")?;
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
     let updated_local_version = extract_version(&local_version_content)?;
-    let local_changelog_content = read_worktree_file(&config.local_path, &config.changelog_file_path)?;
-    let local_section = find_changelog_section(&local_changelog_content, &updated_local_version).ok();
+    let local_changelog_content =
+        read_worktree_file(&config.local_path, &config.changelog_file_path)?;
+    let local_section =
+        find_changelog_section(&local_changelog_content, &updated_local_version).ok();
     let local_details = build_version_details(
         updated_local_version,
         Some(get_head_branch(&repo)?),
@@ -642,12 +722,21 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
     );
 
     emit_progress(&window, "done", 100, "抓取完成")?;
-    Ok(build_pull_result(true, false, "抓取完成", local_details, remote_details))
+    Ok(build_pull_result(
+        true,
+        false,
+        "抓取完成",
+        local_details,
+        remote_details,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{build_pull_result, build_repo_status, extract_version, find_changelog_section, versions_differ, VersionDetails};
+    use super::{
+        build_pull_result, build_repo_status, extract_version, find_changelog_section,
+        versions_differ, VersionDetails,
+    };
 
     #[test]
     fn extracts_release_version_from_first_line() {
@@ -712,8 +801,26 @@ mod tests {
     }
 }
 
+// Set environment variables to help work around GBM/graphics issues in some Linux environments
+fn setup_graphics_workarounds() {
+    // These can help when GBM fails due to GPU/display issues
+    #[cfg(target_os = "linux")]
+    {
+        use std::env;
+        // Try to use software rendering when GPU is not available
+        if env::var("LIBGL_ALWAYS_SOFTWARE").is_err() {
+            env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        }
+        // Disable hardware composition in WebKit
+        if env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
+            env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    setup_graphics_workarounds();
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             git_clone,
