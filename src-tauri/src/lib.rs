@@ -10,8 +10,13 @@ use git2::{
 };
 use serde::{Deserialize, Serialize};
 
-use std::sync::Mutex;
 use sysinfo::{System, Disks};
+use tauri::{command, Emitter, Manager, State, Window};
+
+struct AppState {
+    child_process: Mutex<Option<std::process::Child>>,
+    system: Mutex<System>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,8 +30,8 @@ struct SystemInfo {
 }
 
 #[tauri::command]
-fn get_system_info(state: tauri::State<'_, Mutex<System>>) -> Result<SystemInfo, String> {
-    let mut sys = state.lock().map_err(|e| format!("锁错误: {}", e))?;
+fn get_system_info(state: tauri::State<'_, AppState>) -> Result<SystemInfo, String> {
+    let mut sys = state.system.lock().map_err(|e| format!("锁错误: {}", e))?;
     sys.refresh_all();
 
     let disks = Disks::new_with_refreshed_list();
@@ -47,7 +52,7 @@ fn get_system_info(state: tauri::State<'_, Mutex<System>>) -> Result<SystemInfo,
     })
 }
 
-use tauri::{command, Emitter, Window};
+
 
 const PROGRESS_EVENT: &str = "pull-progress";
 
@@ -1122,7 +1127,10 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
 pub fn run() {
     setup_graphics_workarounds();
     tauri::Builder::default()
-        .manage(Mutex::new(System::new_all()))
+        .manage(AppState { 
+            child_process: Mutex::new(None),
+            system: Mutex::new(System::new_all()),
+        })
         .invoke_handler(tauri::generate_handler![
             git_clone,
             git_pull,
@@ -1132,6 +1140,8 @@ pub fn run() {
             get_dashboard_data,
             run_smart_pull,
             get_system_info,
+            start_service,
+            stop_service,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

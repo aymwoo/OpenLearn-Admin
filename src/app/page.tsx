@@ -444,6 +444,7 @@ export default function Dashboard() {
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
                   <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, sysInfo.cpuUsage)) : 0}%` }}></div>
                 </div>
+              </div>
 
               <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
                 <div className="flex items-center space-x-2 mb-2">
@@ -457,22 +458,14 @@ export default function Dashboard() {
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
                   <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
                 </div>
+              </div>
 
-                {/* Metric 5 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
-                      <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
-                    </div>
-                    <p className="text-xs font-semibold text-on-surface-variant">10 TB 总计</p>
-                  </div>
-                  <div className="flex items-end justify-between mb-2">
-                    <h4 className="text-3xl font-headline font-bold text-on-surface">4.2 <span className="text-base text-on-surface-variant font-semibold">TB 可用</span></h4>
-                    <span className="text-sm font-semibold text-on-surface">58% 已用</span>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
-                    <div className="bg-cyan-500 h-2 rounded-full" style={{ width: "58%" }}></div>
+              {/* Metric 5 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
+                    <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
                   </div>
                   <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : '-'} 总计</p>
                 </div>
