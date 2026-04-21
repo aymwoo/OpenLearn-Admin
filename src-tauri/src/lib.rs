@@ -9,11 +9,45 @@ use git2::{
     build::CheckoutBuilder, AnnotatedCommit, Cred, FetchOptions, Oid, RemoteCallbacks, Repository,
 };
 use serde::{Deserialize, Serialize};
-use tauri::{command, Emitter, Manager, State, Window};
 
-struct AppState {
-    child_process: Mutex<Option<std::process::Child>>,
+use std::sync::Mutex;
+use sysinfo::{System, Disks};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SystemInfo {
+    uptime: u64,
+    cpu_usage: f32,
+    memory_total: u64,
+    memory_used: u64,
+    disk_total: u64,
+    disk_available: u64,
 }
+
+#[tauri::command]
+fn get_system_info(state: tauri::State<'_, Mutex<System>>) -> Result<SystemInfo, String> {
+    let mut sys = state.lock().map_err(|e| format!("锁错误: {}", e))?;
+    sys.refresh_all();
+
+    let disks = Disks::new_with_refreshed_list();
+    let mut disk_total = 0;
+    let mut disk_available = 0;
+    for disk in disks.list() {
+        disk_total += disk.total_space();
+        disk_available += disk.available_space();
+    }
+
+    Ok(SystemInfo {
+        uptime: System::uptime(),
+        cpu_usage: sys.global_cpu_usage(),
+        memory_total: sys.total_memory(),
+        memory_used: sys.used_memory(),
+        disk_total,
+        disk_available,
+    })
+}
+
+use tauri::{command, Emitter, Window};
 
 const PROGRESS_EVENT: &str = "pull-progress";
 
@@ -1088,7 +1122,7 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
 pub fn run() {
     setup_graphics_workarounds();
     tauri::Builder::default()
-        .manage(AppState { child_process: Mutex::new(None) })
+        .manage(Mutex::new(System::new_all()))
         .invoke_handler(tauri::generate_handler![
             git_clone,
             git_pull,
@@ -1097,8 +1131,7 @@ pub fn run() {
             git_backup,
             get_dashboard_data,
             run_smart_pull,
-            start_service,
-            stop_service,
+            get_system_info,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
