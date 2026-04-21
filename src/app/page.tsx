@@ -191,6 +191,7 @@ export default function Dashboard() {
   const localVer = localDetails?.version ?? status?.localVersion ?? '-';
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? '-';
   const isUpToDate = !status?.hasUpdates;
+  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -397,7 +398,7 @@ export default function Dashboard() {
                   <span className="material-symbols-outlined text-9xl text-emerald-500">schedule</span>
                 </div>
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">系统正常运行时间</p>
-                <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatUptime(sysInfo.uptime).value : '-'} <span className="text-lg text-on-surface-variant font-semibold">{sysInfo ? formatUptime(sysInfo.uptime).unit : ''}</span></h4>
+                <h4 className="text-3xl font-headline font-bold text-on-surface">{uptime ? uptime.value : '-'} <span className="text-lg text-on-surface-variant font-semibold">{uptime ? uptime.unit : ''}</span></h4>
                 <p className="text-xs text-on-surface-variant mt-2">自上次重启</p>
               </div>
               
