@@ -410,8 +410,9 @@ export default function Dashboard() {
                   {sysInfo ? formatBytes(sysInfo.diskTotal * 0.15).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskTotal * 0.15).unit : ''}</span>
                 </h4>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: "45%" }}></div>
+                  <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, 0.15 * 100)) : 0}%` }}></div>
                 </div>
+                <p className="text-xs text-on-surface-variant mt-2">按磁盘总容量的 15% 估算，仅供参考</p>
               </div>
 
               <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
