@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "identifier": "com.gitupdater.app",
   "build": {
-    "frontendDist": "../.next"
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:3000"
   },
   "app": {
     "windows": [{
