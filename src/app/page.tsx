@@ -112,8 +112,12 @@ export default function Dashboard() {
       setRemoteDetails(result.remote);
       setProgress({ stage: 'done', percent: 100, label: result.message });
 
-      const data = await getDashboardData(config);
-      applyDashboardData(data);
+      setStatus({
+        currentBranch: config.branch,
+        hasUpdates: result.local.version !== result.remote.version,
+        localVersion: result.local.version,
+        remoteVersion: result.remote.version,
+      });
 
       const rs = await getRemoteStatus(config.localPath);
       setRemoteStatus(rs);
