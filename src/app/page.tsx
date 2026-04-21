@@ -49,7 +49,7 @@ export default function Dashboard() {
         applyDashboardData(data);
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
-        if (errMsg.contains("空文件夹") || errMsg.contains("请先克隆") || errMsg.includes("不是有效的 Git")) {
+        if (errMsg.includes("空文件夹") || errMsg.includes("请先克隆") || errMsg.includes("不是有效的 Git")) {
           if (mounted) {
             setStatus({
               currentBranch: cfg.branch,
