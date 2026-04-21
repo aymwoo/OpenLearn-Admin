@@ -37,7 +37,7 @@ describe('Settings', () => {
 
     fireEvent.change(versionInput, { target: { value: 'custom/release.log' } });
     fireEvent.change(changelogInput, { target: { value: 'docs/CHANGELOG.md' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存配置' }));
+    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/user/repo.git' } }); fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path/to/local/repo' } }); fireEvent.click(screen.getByRole('button', { name: '保存配置' }));
 
     await waitFor(() => {
       const stored = localStorage.getItem('git-updater-config');
