@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { getSystemInfo, type SystemInfo } from '@/lib/sys';
 import {
   type DashboardData,
   type FetchProgress,
@@ -13,6 +14,9 @@ import {
   listenPullProgress,
   loadConfig,
   runSmartPull,
+  startService,
+  stopService,
+  listenServiceLog,
 } from '@/lib/git';
 
 export default function Dashboard() {
@@ -24,6 +28,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [remoteStatus, setRemoteStatus] = useState<{ ahead: number; behind: number; lastCommitTime: string } | null>(null);
+  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
 
   const applyDashboardData = (data: DashboardData) => {
     setStatus(data.status);
@@ -93,11 +98,65 @@ export default function Dashboard() {
       unlisten = dispose;
     }).catch(() => {});
 
+    let unlistenService: (() => void) | undefined;
+    listenServiceLog((log) => {
+      if (mounted) {
+        setTerminalLogs(prev => [...prev.slice(-99), log]);
+      }
+    }).then((dispose) => {
+      unlistenService = dispose;
+    }).catch(() => {});
+
     return () => {
       mounted = false;
       unlisten?.();
+      unlistenService?.();
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchSysInfo = async () => {
+      try {
+        const info = await getSystemInfo();
+        if (mounted) {
+          setSysInfo(info);
+        }
+      } catch (err) {
+        console.error('Failed to get system info:', err);
+      }
+    };
+
+    fetchSysInfo();
+    const interval = setInterval(fetchSysInfo, 2000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return { value: 0, unit: 'B' };
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return {
+      value: parseFloat((bytes / Math.pow(k, i)).toFixed(1)),
+      unit: sizes[i]
+    };
+  };
+
+  const formatUptime = (seconds: number) => {
+    const days = Math.floor(seconds / (3600 * 24));
+    if (days > 0) return { value: days, unit: '天' };
+    const hours = Math.floor(seconds % (3600 * 24) / 3600);
+    if (hours > 0) return { value: hours, unit: '小时' };
+    const minutes = Math.floor(seconds % 3600 / 60);
+    return { value: minutes, unit: '分钟' };
+  };
+
 
   const handlePull = async () => {
     if (!config) return;
@@ -137,6 +196,34 @@ export default function Dashboard() {
     }
   };
 
+  const handleStartService = async () => {
+    if (!config) return;
+    setLoading(true);
+    setTerminalLogs(prev => [...prev, 'Starting service...']);
+    try {
+      const msg = await startService(config.localPath);
+      setServiceRunning(true);
+      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
+    } catch (e) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStopService = async () => {
+    setLoading(true);
+    try {
+      const msg = await stopService();
+      setServiceRunning(false);
+      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
+    } catch (e) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!config) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -148,7 +235,8 @@ export default function Dashboard() {
   // Derived state calculations
   const localVer = localDetails?.version ?? status?.localVersion ?? '-';
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? '-';
-  const isUpToDate = remoteStatus ? remoteStatus.behind === 0 : !status?.hasUpdates;
+  const isUpToDate = !status?.hasUpdates;
+  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -221,10 +309,10 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="flex space-x-3">
-              <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
+              <button onClick={handleStopService} disabled={loading || !serviceRunning} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
                 Stop Service
               </button>
-              <button onClick={handlePull} disabled={loading} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
+              <button onClick={handleStartService} disabled={loading || serviceRunning} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
                 Start Service
               </button>
             </div>
@@ -321,56 +409,53 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Row 2: Metrics */}
-            <div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {/* Metric 1 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center relative overflow-hidden group">
-                  <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <span className="material-symbols-outlined text-9xl text-emerald-500">schedule</span>
-                  </div>
-                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">系统正常运行时间</p>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface truncate pr-4">45 <span className="text-base text-on-surface-variant font-semibold">天</span></h4>
-                  <p className="text-xs text-on-surface-variant mt-2">自上次重启</p>
+            <div className="xl:col-span-2 grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 col-span-2 lg:col-span-1 flex flex-col justify-center relative overflow-hidden group">
+                <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <span className="material-symbols-outlined text-9xl text-emerald-500">schedule</span>
                 </div>
-                
-                {/* Metric 2 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-amber-500 text-sm">database</span>
-                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">数据库大小</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">1.4 <span className="text-sm text-on-surface-variant font-semibold">TB</span></h4>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: "45%" }}></div>
-                  </div>
+                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">系统正常运行时间</p>
+                <h4 className="text-3xl font-headline font-bold text-on-surface">{uptime ? uptime.value : '-'} <span className="text-lg text-on-surface-variant font-semibold">{uptime ? uptime.unit : ''}</span></h4>
+                <p className="text-xs text-on-surface-variant mt-2">自上次重启</p>
+              </div>
+              
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="material-symbols-outlined text-amber-500 text-sm">database</span>
+                  <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">数据库大小 (估算)</p>
+                </div>
+                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
+                  {sysInfo ? formatBytes(sysInfo.diskTotal * 0.15).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskTotal * 0.15).unit : ''}</span>
+                </h4>
+                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, 0.15 * 100)) : 0}%` }}></div>
+                </div>
+                <p className="text-xs text-on-surface-variant mt-2">按磁盘总容量的 15% 估算，仅供参考</p>
+              </div>
+
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="material-symbols-outlined text-rose-500 text-sm">memory</span>
+                  <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">CPU 使用率</p>
+                </div>
+                <div className="flex items-baseline space-x-1 mb-1">
+                  <h4 className="text-2xl font-headline font-bold text-on-surface">{sysInfo ? sysInfo.cpuUsage.toFixed(0) : '-'}%</h4>
+                </div>
+                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, sysInfo.cpuUsage)) : 0}%` }}></div>
                 </div>
 
-                {/* Metric 3 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-rose-500 text-sm">memory</span>
-                    <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">CPU 使用率</p>
-                  </div>
-                  <div className="flex items-baseline space-x-1 mb-1">
-                    <h4 className="text-2xl font-headline font-bold text-on-surface">42%</h4>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: "42%" }}></div>
-                  </div>
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="material-symbols-outlined text-purple-500 text-sm">memory_alt</span>
+                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">内存使用情况</p>
                 </div>
-
-                {/* Metric 4 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-purple-500 text-sm">memory_alt</span>
-                    <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">内存使用情况</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">64 <span className="text-sm text-on-surface-variant font-semibold">GB</span></h4>
-                  <p className="text-xs text-on-surface-variant mt-1">/ 128 GB 总计</p>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: "50%" }}></div>
-                  </div>
+                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
+                  {sysInfo ? formatBytes(sysInfo.memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ''}</span>
+                </h4>
+                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}` : '-'} 总计</p>
+                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
                 </div>
 
                 {/* Metric 5 */}
@@ -389,6 +474,14 @@ export default function Dashboard() {
                   <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
                     <div className="bg-cyan-500 h-2 rounded-full" style={{ width: "58%" }}></div>
                   </div>
+                  <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : '-'} 总计</p>
+                </div>
+                <div className="flex items-end justify-between mb-2">
+                  <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatBytes(sysInfo.diskAvailable).value : '-'} <span className="text-base text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ''} 可用</span></h4>
+                  <span className="text-sm font-semibold text-on-surface">{sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100).toFixed(0) : 0}% 已用</span>
+                </div>
+                <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
+                  <div className="bg-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
                 </div>
               </div>
             </div>
@@ -401,9 +494,12 @@ export default function Dashboard() {
                   <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
-                <p className="text-white/30 text-xs tracking-wider">SYSTEM_TERMINAL</p>
+                <div className="flex items-center space-x-2">
+                  {serviceRunning && <span className="flex w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>}
+                  <p className="text-white/30 text-xs tracking-wider">SYSTEM_TERMINAL</p>
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto text-white/70 space-y-1">
+              <div className="flex-1 overflow-y-auto text-white/70 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
                 {message && <p><span className={message.includes('失败') || message.includes('error') ? 'text-[#ff5f56]' : 'text-[#27c93f]'}>[{message.includes('失败') || message.includes('error') ? 'ERROR' : 'SUCCESS'}]</span> {message}</p>}
                 
                 {remoteDetails?.changelogSection && (
@@ -412,7 +508,14 @@ export default function Dashboard() {
                   </div>
                 )}
                 
+                {terminalLogs.map((log, i) => (
+                  <p key={i} className={log.includes('[ERROR]') ? 'text-[#ff5f56]' : (log.includes('[SUCCESS]') ? 'text-[#27c93f]' : 'text-white/80')}>
+                    {log}
+                  </p>
+                ))}
+                
                 <p className="mt-4 text-white">user@lumina-os:~$ <span className="animate-pulse">_</span></p>
+                <div ref={terminalEndRef} />
               </div>
             </div>
           </div>

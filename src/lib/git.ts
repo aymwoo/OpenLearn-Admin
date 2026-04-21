@@ -124,3 +124,16 @@ export async function getBranches(path: string): Promise<string[]> {
 export async function backupRepo(sourcePath: string): Promise<string> {
   return await invoke<string>('git_backup', { sourcePath });
 }
+
+export async function startService(path: string): Promise<string> {
+  return await invoke<string>('start_service', { path });
+}
+
+export async function stopService(): Promise<string> {
+  return await invoke<string>('stop_service');
+}
+
+export async function listenServiceLog(handler: (log: string) => void): Promise<UnlistenFn> {
+  return listen<string>('service-log', (event) => handler(event.payload));
+}
+
