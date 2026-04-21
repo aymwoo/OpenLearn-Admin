@@ -42,23 +42,37 @@ export default function Settings() {
     setShowCloneConfirm(false);
   };
 
+  const checkAndSave = async () => {
+    if (!config.localPath) {
+      if (!config.remoteUrl || !config.branch) {
+        return '请填写完整信息';
+      }
+      return 'needs-clone';
+    }
+    try {
+      await getRemoteStatus(config.localPath);
+      await saveConfig(config);
+      return 'saved';
+    } catch {
+      if (!config.remoteUrl || !config.branch) {
+        return 'invalid-path';
+      }
+      return 'needs-clone';
+    }
+  };
+
   const handleSave = async () => {
     setLoading(true);
     setMessage('');
     try {
-      if (!config.localPath) {
-        if (!config.remoteUrl || !config.branch) {
-          setMessage('请填写完整信息或至少填写远端仓库和分支');
-          setLoading(false);
-          return;
-        }
+      const result = await checkAndSave();
+      if (result === 'saved') {
+        setMessage('配置已保存');
+      } else if (result === 'needs-clone') {
         setShowCloneConfirm(true);
-        setLoading(false);
-        return;
+      } else {
+        setMessage(result);
       }
-      await saveConfig(config);
-      await getRemoteStatus(config.localPath);
-      setMessage('配置已保存');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }

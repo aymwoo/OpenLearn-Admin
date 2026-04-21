@@ -145,7 +145,21 @@ fn ensure_config(config: &GitConfig) -> Result<(), String> {
     Ok(())
 }
 
+fn is_valid_git_repo(path: &Path) -> bool {
+    path.join(".git").is_dir()
+}
+
 fn open_repo(path: &str) -> Result<Repository, String> {
+    let p = Path::new(path);
+    if !p.exists() {
+        return Err("路径不存在".to_string());
+    }
+    if !p.is_dir() {
+        return Err("路径不是有效目录".to_string());
+    }
+    if !is_valid_git_repo(p) {
+        return Err("目标目录不是有效的 Git 仓库（缺少 .git 目录），请先克隆仓库".to_string());
+    }
     Repository::open(path).map_err(|e| format!("无法打开仓库: {e}"))
 }
 
@@ -394,7 +408,27 @@ fn emit_progress(window: &Window, stage: &str, percent: u8, label: &str) -> Resu
 
 #[command]
 fn git_clone(url: String, path: String, branch: String) -> Result<String, String> {
+    let target_path = Path::new(&path);
     let branch = default_branch(&branch).to_string();
+    
+    if target_path.exists() {
+        if !is_valid_git_repo(target_path) {
+            let is_empty = fs::read_dir(target_path)
+                .map_err(|_| "无法读取目录")?
+                .next()
+                .transpose()
+                .map_err(|_| "无法检查目录")?
+                .is_none();
+            
+            if !is_empty {
+                let backup_path = format!("{}.backup-{}", &path, Local::now().format("%Y-%m-%dT%H-%M-%S"));
+                copy_dir_recursive(target_path, Path::new(&backup_path))
+                    .map_err(|e| format!("备份失败: {e}"))?;
+            }
+            fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
+        }
+    }
+    
     git2::build::RepoBuilder::new()
         .branch(&branch)
         .fetch_options({
@@ -506,6 +540,46 @@ fn get_dashboard_data(config: GitConfig) -> Result<DashboardData, String> {
 #[command]
 fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
+    
+    let target_path = Path::new(&config.local_path);
+    if !is_valid_git_repo(target_path) {
+        emit_progress(&window, "cloning", 10, "正在准备克隆仓库")?;
+        
+        if target_path.exists() && !is_valid_git_repo(target_path) {
+            let is_empty = fs::read_dir(target_path)
+                .map_err(|_| "无法读取目录")?
+                .next()
+                .transpose()
+                .map_err(|_| "无法检查目录")?
+                .is_none();
+            
+            if !is_empty {
+                emit_progress(&window, "backup", 20, "正在备份现有目录")?;
+                let backup_path = format!("{}.backup-{}", &config.local_path, Local::now().format("%Y-%m-%dT%H-%M-%S"));
+                copy_dir_recursive(target_path, Path::new(&backup_path))
+                    .map_err(|e| format!("备份失败: {e}"))?;
+            }
+            fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
+        }
+        
+        emit_progress(&window, "cloning", 50, "正在克隆仓库")?;
+        let branch = default_branch(&config.branch).to_string();
+        git2::build::RepoBuilder::new()
+            .branch(&branch)
+            .fetch_options({
+                let mut options = FetchOptions::new();
+                options.remote_callbacks(remote_callbacks());
+                options
+            })
+            .clone(&config.remote_url, target_path)
+            .map_err(|e| format!("克隆仓库失败: {e}"))?;
+        
+        emit_progress(&window, "done", 100, "克隆完成")?;
+        return Ok(build_pull_result(true, false, "仓库克隆完成", 
+            build_version_details("新克隆".to_string(), Some(branch.clone()), None, None, "local"),
+            build_version_details("新克隆".to_string(), Some(branch), None, None, "remote")));
+    }
+
     emit_progress(&window, "checking", 10, "检查远端版本")?;
 
     let repo = open_repo(&config.local_path)?;
