@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   type DashboardData,
   type FetchProgress,
@@ -13,6 +13,9 @@ import {
   listenPullProgress,
   loadConfig,
   runSmartPull,
+  startService,
+  stopService,
+  listenServiceLog,
 } from '@/lib/git';
 
 export default function Dashboard() {
@@ -24,6 +27,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [remoteStatus, setRemoteStatus] = useState<{ ahead: number; behind: number; lastCommitTime: string } | null>(null);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [serviceRunning, setServiceRunning] = useState(false);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
 
   const applyDashboardData = (data: DashboardData) => {
     setStatus(data.status);
@@ -93,11 +99,27 @@ export default function Dashboard() {
       unlisten = dispose;
     }).catch(() => {});
 
+    let unlistenService: (() => void) | undefined;
+    listenServiceLog((log) => {
+      if (mounted) {
+        setTerminalLogs(prev => [...prev.slice(-99), log]);
+      }
+    }).then((dispose) => {
+      unlistenService = dispose;
+    }).catch(() => {});
+
     return () => {
       mounted = false;
       unlisten?.();
+      unlistenService?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [terminalLogs]);
 
   const handlePull = async () => {
     if (!config) return;
@@ -128,6 +150,34 @@ export default function Dashboard() {
 
       const rs = await getRemoteStatus(config.localPath);
       setRemoteStatus(rs);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartService = async () => {
+    if (!config) return;
+    setLoading(true);
+    setTerminalLogs(prev => [...prev, 'Starting service...']);
+    try {
+      const msg = await startService(config.localPath);
+      setServiceRunning(true);
+      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
+    } catch (e) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStopService = async () => {
+    setLoading(true);
+    try {
+      const msg = await stopService();
+      setServiceRunning(false);
+      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
+    } catch (e) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
     } finally {
       setLoading(false);
     }
@@ -217,10 +267,10 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="flex space-x-3">
-              <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
+              <button onClick={handleStopService} disabled={loading || !serviceRunning} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
                 Stop Service
               </button>
-              <button onClick={handlePull} disabled={loading} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
+              <button onClick={handleStartService} disabled={loading || serviceRunning} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
                 Start Service
               </button>
             </div>
@@ -397,9 +447,12 @@ export default function Dashboard() {
                   <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
-                <p className="text-white/30 text-xs tracking-wider">SYSTEM_TERMINAL</p>
+                <div className="flex items-center space-x-2">
+                  {serviceRunning && <span className="flex w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>}
+                  <p className="text-white/30 text-xs tracking-wider">SYSTEM_TERMINAL</p>
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto text-white/70 space-y-1">
+              <div className="flex-1 overflow-y-auto text-white/70 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
                 {message && <p><span className={message.includes('失败') || message.includes('error') ? 'text-[#ff5f56]' : 'text-[#27c93f]'}>[{message.includes('失败') || message.includes('error') ? 'ERROR' : 'SUCCESS'}]</span> {message}</p>}
                 
                 {remoteDetails?.changelogSection && (
@@ -408,7 +461,14 @@ export default function Dashboard() {
                   </div>
                 )}
                 
+                {terminalLogs.map((log, i) => (
+                  <p key={i} className={log.includes('[ERROR]') ? 'text-[#ff5f56]' : (log.includes('[SUCCESS]') ? 'text-[#27c93f]' : 'text-white/80')}>
+                    {log}
+                  </p>
+                ))}
+                
                 <p className="mt-4 text-white">user@lumina-os:~$ <span className="animate-pulse">_</span></p>
+                <div ref={terminalEndRef} />
               </div>
             </div>
           </div>
