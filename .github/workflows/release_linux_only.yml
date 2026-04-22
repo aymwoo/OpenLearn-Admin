@@ -14,14 +14,12 @@ jobs:
       contents: write
     
     env:
-      # 强制使用 Node 24 解决你图片中提到的弃用警告
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 1. 安装 Tauri v2 必须的 Linux 系统库
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -36,28 +34,25 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      # 2. 设置前端环境 (使用你偏好的 pnpm)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
+          # 显式关闭 run_install，由我们手动控制以排查错误
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
 
-      # 3. 设置 Rust 环境
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # 4. 安装项目依赖
+      # 关键修正：确保在根目录下运行，并尝试忽略某些 workspace 严格检查
       - name: Install project dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
-      # 5. 执行构建并发布
-      # 注意：使用了 v0 版本，它能自动处理 Tauri v2 的构建逻辑
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
