@@ -45,6 +45,16 @@ describe('Settings', () => {
     fireEvent.change(remoteUrlInput, { target: { value: 'http://test' } });
 
     fireEvent.change(changelogInput, { target: { value: 'docs/CHANGELOG.md' } });
+    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/a/b.git' } });
+    fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path' } });
+    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/a/b.git' } });
+    fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path' } });
+    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/a/b.git' } });
+    fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path' } });
+    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/a/b.git' } });
+    fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path' } });
+    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/a/b.git' } });
+    fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path' } });
 
     // Test the new web service URL
     const webServiceUrlInput = await screen.findByLabelText('Web 服务 URL');

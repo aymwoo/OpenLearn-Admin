@@ -1,3 +1,7 @@
+packages:
+  - '.'
+  - 'src-tauri'
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver

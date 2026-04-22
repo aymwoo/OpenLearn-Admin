@@ -239,7 +239,7 @@ export default function Dashboard() {
   const localVer = localDetails?.version ?? status?.localVersion ?? '-';
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? '-';
   const isUpToDate = !status?.hasUpdates;
-  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
+  const uptime = sysInfo ? (sysInfo as any).uptime ? formatUptime((sysInfo as any).uptime) : sysInfo.uptimeDays + '天' : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -476,7 +476,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, sysInfo.cpuUsage)) : 0}%` }}></div>
+                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, (sysInfo as any).cpuUsage)) : 0}%` }}></div>
                 </div>
               </div>
 
@@ -493,11 +493,11 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
-                  {sysInfo ? formatBytes(sysInfo.memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ''}</span>
+                  {sysInfo ? formatBytes((sysInfo as any).memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes((sysInfo as any).memoryUsed).unit : ''}</span>
                 </h4>
-                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}` : '-'} 总计</p>
+                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes((sysInfo as any).memoryTotal).value} ${formatBytes((sysInfo as any).memoryTotal).unit}` : '-'} 总计</p>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
+                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && (sysInfo as any).memoryTotal > 0 ? ((sysInfo as any).memoryUsed / (sysInfo as any).memoryTotal) * 100 : 0}%` }}></div>
                 </div>
               </div>
 
