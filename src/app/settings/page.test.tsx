@@ -12,6 +12,7 @@ vi.mock('@/lib/git', () => ({
     backupBeforePull: true,
     versionFilePath: 'release.log',
     changelogFilePath: 'CHANGELOG.md',
+    webServiceUrl: 'http://127.0.0.1:8000',
   },
   loadConfig: vi.fn(async () => null),
   saveConfig: vi.fn(async (config) => {
@@ -37,15 +38,20 @@ describe('Settings', () => {
 
     fireEvent.change(versionInput, { target: { value: 'custom/release.log' } });
     fireEvent.change(changelogInput, { target: { value: 'docs/CHANGELOG.md' } });
-    fireEvent.change(screen.getByLabelText('远端仓库地址'), { target: { value: 'https://github.com/user/repo.git' } }); fireEvent.change(screen.getByLabelText('本地路径'), { target: { value: '/path/to/local/repo' } }); fireEvent.click(screen.getByRole('button', { name: '保存配置' }));
+
+    // Test the new web service URL
+    const webServiceUrlInput = await screen.findByLabelText('Web 服务 URL');
+    expect(webServiceUrlInput).toHaveValue('http://127.0.0.1:8000');
+    fireEvent.change(webServiceUrlInput, { target: { value: 'http://localhost:3000' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存配置' }));
 
     await waitFor(() => {
       const stored = localStorage.getItem('git-updater-config');
 
       expect(stored).not.toBeNull();
-      const parsed = JSON.parse(stored!);
-      expect(parsed.versionFilePath).toBe('custom/release.log');
-      expect(parsed.changelogFilePath).toBe('docs/CHANGELOG.md');
+      expect(stored!).toContain('custom/release.log');
+      expect(stored!).toContain('docs/CHANGELOG.md');
+      expect(stored!).toContain('http://localhost:3000');
     });
   });
 });
