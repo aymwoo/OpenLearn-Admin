@@ -319,12 +319,7 @@ export default function Dashboard() {
                 <span className="material-symbols-outlined text-sm">stop</span>
                 <span>Stop Service</span>
               </button>
-              <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
-                Stop Service
-              </button>
-              <button onClick={handlePull} disabled={loading} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
-                Start Service
-              </button>
+
               <button
                 className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Sync Status"
@@ -475,9 +470,7 @@ export default function Dashboard() {
                     <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: `${sysInfo?.cpuUsage ?? 42}%` }}></div>
                   </div>
                 </div>
-                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, (sysInfo as any).cpuUsage)) : 0}%` }}></div>
-                </div>
+
               </div>
 
                 {/* Metric 4 */}
@@ -492,13 +485,7 @@ export default function Dashboard() {
                     <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
                   </div>
                 </div>
-                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
-                  {sysInfo ? formatBytes((sysInfo as any).memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes((sysInfo as any).memoryUsed).unit : ''}</span>
-                </h4>
-                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes((sysInfo as any).memoryTotal).value} ${formatBytes((sysInfo as any).memoryTotal).unit}` : '-'} 总计</p>
-                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && (sysInfo as any).memoryTotal > 0 ? ((sysInfo as any).memoryUsed / (sysInfo as any).memoryTotal) * 100 : 0}%` }}></div>
-                </div>
+
               </div>
 
                 {/* Metric 5 */}
