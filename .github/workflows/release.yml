@@ -5,12 +5,17 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 强制 GitHub Actions 运行环境使用 Node.js 24
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
+        # 使用最新的 ubuntu-24.04 (Noble Numbat)
+        platform: [macos-latest, ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -18,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
@@ -26,15 +31,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 升级至 Node.js 22 (当前稳定 LTS) 或直接使用 24 以匹配 Runner 趋势
+          node-version: 22
+          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
+          # 保持最新主版本
           version: 9
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          # 显式指定 targets 可以在跨平台构建时更稳定
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
