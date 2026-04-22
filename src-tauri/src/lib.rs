@@ -611,7 +611,7 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         remote_oid
     );
 
-    // 使用 merge_analysis 计算 ahead/behind
+    // 使用 graph_ahead_behind 计算 ahead/behind
     let (ahead, behind) = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
         match repo.find_reference(&format!("refs/remotes/origin/{}", branch)) {
             Ok(remote_ref) => {
