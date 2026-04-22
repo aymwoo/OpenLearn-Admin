@@ -79,5 +79,4 @@ describe('Dashboard', () => {
     expect(await screen.findByText('请先配置仓库')).toBeInTheDocument();
   });
 
-
-  });
+});
