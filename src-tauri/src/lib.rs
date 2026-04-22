@@ -914,6 +914,24 @@ mod tests {
     }
 
     #[test]
+    fn extract_version_empty_content() {
+        let content = "";
+        assert_eq!(extract_version(content), Err("版本文件为空".to_string()));
+    }
+
+    #[test]
+    fn extract_version_whitespace_content() {
+        let content = "   \n  \t  \n";
+        assert_eq!(extract_version(content), Err("版本文件为空".to_string()));
+    }
+
+    #[test]
+    fn extract_version_ignores_leading_empty_lines() {
+        let content = "\n  \n  v1.0.0  \nignored";
+        assert_eq!(extract_version(content).unwrap(), "v1.0.0");
+    }
+
+    #[test]
     fn finds_exact_matching_changelog_section() {
         let changelog = "2026-04-19\n升级增强\n版本号更新至 v2.0.0.2.20260419125025\n\n2026-04-18\n升级增强\n版本号更新至 v2.0.0.1.20260418111118";
         let section = find_changelog_section(changelog, "v2.0.0.2.20260419125025").unwrap();
