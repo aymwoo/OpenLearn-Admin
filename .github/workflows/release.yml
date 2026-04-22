@@ -1,67 +1,97 @@
 name: Release
+
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
-
-# 强制 GitHub Actions 运行环境使用 Node.js 24
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   release:
+    permissions:
+      contents: write
+
     strategy:
       fail-fast: false
       matrix:
-        # 使用最新的 ubuntu-24.04 (Noble Numbat)
-        platform: [macos-latest, ubuntu-24.04, windows-latest]
+        platform:
+          - ubuntu-24.04
+          - windows-latest
+          - macos-latest
+
     runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies (ubuntu only)
+      # Linux Tauri dependencies
+      - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
+      # pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      # Node.js 22 LTS
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # 升级至 Node.js 22 (当前稳定 LTS) 或直接使用 24 以匹配 Runner 趋势
           node-version: 22
-          cache: 'pnpm'
+          cache: pnpm
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          # 保持最新主版本
-          version: 9
-
+      # Rust
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          # 显式指定 targets 可以在跨平台构建时更稳定
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      # Rust cache
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
-      - name: Install frontend dependencies
+      # Verify env
+      - name: Verify environment
+        run: |
+          node -v
+          pnpm -v
+          rustc -V
+          cargo -V
+
+      # Install frontend deps
+      - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+      # Build and publish Tauri app
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Release ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          releaseName: Release ${{ github.ref_name }}
+          releaseBody: |
+            Auto generated release for ${{ github.ref_name }}
+
+            Downloads:
+            - Windows: .exe / .msi
+            - macOS: .dmg
+            - Linux: .AppImage / .deb
+          releaseDraft: false
           prerelease: false
