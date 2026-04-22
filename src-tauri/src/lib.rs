@@ -1248,9 +1248,21 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, Strin
 #[cfg(test)]
 mod tests {
     use super::{
-        build_pull_result, build_repo_status, extract_version, find_changelog_section,
+        build_pull_result, default_branch, build_repo_status, extract_version, find_changelog_section,
         versions_differ, VersionDetails,
     };
+
+    #[test]
+    fn default_branch_returns_main_for_empty_string() {
+        assert_eq!(default_branch(""), "main");
+        assert_eq!(default_branch("   "), "main");
+    }
+
+    #[test]
+    fn default_branch_returns_input_when_not_empty() {
+        assert_eq!(default_branch("develop"), "develop");
+        assert_eq!(default_branch(" feature/xyz "), " feature/xyz ");
+    }
 
     #[test]
     fn extracts_release_version_from_first_line() {
