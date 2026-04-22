@@ -15,7 +15,7 @@
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260422-i24-update-progress | 添加更新开始时的进度显示 | 2026-04-22 | | [260422-i24-update-progress](./quick/260422-i24-update-progress/) |
+| 260422-i24-update-progress | 添加更新开始时的进度显示 | 2026-04-22 | d50b46d | [260422-i24-update-progress](./quick/260422-i24-update-progress/) |
 | 260422-hvh-unbornbranch | 修复强制覆盖时的UnbornBranch错误 | 2026-04-22 | 28ebae3 | [260422-hvh-unbornbranch](./quick/260422-hvh-unbornbranch/) |
 | 260422-hnj-force-override | 实现强制覆盖：备份冲突文件后用远端强制覆盖本地 | 2026-04-22 | 8e9b33a | [260422-hnj-force-override](./quick/260422-hnj-force-override/) |
 | 260422-hbc-release-log | 修复仓库缺少 release.log 文件错误处理逻辑 | 2026-04-22 | 37d2eb0 | [260422-hbc-release-log](./quick/260422-hbc-release-log/) |
