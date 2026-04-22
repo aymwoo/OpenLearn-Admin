@@ -263,11 +263,29 @@ fn fetch_branch(repo: &Repository, branch: &str) -> Result<(), String> {
 }
 
 fn get_head_branch(repo: &Repository) -> Result<String, String> {
-    repo.head()
-        .map_err(|e| format!("读取当前分支失败: {e}"))?
-        .shorthand()
-        .map(str::to_string)
-        .ok_or_else(|| "无法确定当前分支".to_string())
+    match repo.head() {
+        Ok(head) => head
+            .shorthand()
+            .map(str::to_string)
+            .ok_or_else(|| "无法确定当前分支".to_string()),
+        Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+            // 如果是未初始化的分支（如刚 init 还没 commit），尝试获取 HEAD 指向的名字
+            repo.find_reference("HEAD")
+                .and_then(|r| {
+                    r.symbolic_target()
+                        .map(|t| t.to_string())
+                        .ok_or_else(|| git2::Error::from_str("HEAD is not symbolic"))
+                })
+                .map(|target| {
+                    target
+                        .strip_prefix("refs/heads/")
+                        .unwrap_or(&target)
+                        .to_string()
+                })
+                .map_err(|_| "读取当前分支失败: 仓库未拉取且无法确定默认分支名".to_string())
+        }
+        Err(e) => Err(format!("读取当前分支失败: {e}")),
+    }
 }
 
 fn read_worktree_file(repo_root: &str, relative_path: &str) -> Result<String, String> {
