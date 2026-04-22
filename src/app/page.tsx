@@ -14,9 +14,6 @@ import {
   listenPullProgress,
   loadConfig,
   runSmartPull,
-  startService,
-  stopService,
-  listenServiceLog,
 } from '@/lib/git';
 
 export default function Dashboard() {
@@ -98,19 +95,11 @@ export default function Dashboard() {
       unlisten = dispose;
     }).catch(() => {});
 
-    let unlistenService: (() => void) | undefined;
-    listenServiceLog((log) => {
-      if (mounted) {
-        setTerminalLogs(prev => [...prev.slice(-99), log]);
-      }
-    }).then((dispose) => {
-      unlistenService = dispose;
-    }).catch(() => {});
+
 
     return () => {
       mounted = false;
       unlisten?.();
-      unlistenService?.();
     };
   }, []);
 
@@ -196,33 +185,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartService = async () => {
-    if (!config) return;
-    setLoading(true);
-    setTerminalLogs(prev => [...prev, 'Starting service...']);
-    try {
-      const msg = await startService(config.localPath);
-      setServiceRunning(true);
-      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
-    } catch (e) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopService = async () => {
-    setLoading(true);
-    try {
-      const msg = await stopService();
-      setServiceRunning(false);
-      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
-    } catch (e) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!config) {
     return (
@@ -308,14 +270,7 @@ export default function Dashboard() {
                   <span className="material-symbols-outlined">settings</span>
               </Link>
             </div>
-            <div className="flex space-x-3">
-              <button onClick={handleStopService} disabled={loading || !serviceRunning} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
-                Stop Service
-              </button>
-              <button onClick={handleStartService} disabled={loading || serviceRunning} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
-                Start Service
-              </button>
-            </div>
+
             <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-on-surface-variant">person</span>
             </div>
@@ -488,7 +443,7 @@ export default function Dashboard() {
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {serviceRunning && <span className="flex w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>}
+
                   <p className="text-white/30 text-xs tracking-wider">SYSTEM_TERMINAL</p>
                 </div>
               </div>
@@ -501,14 +456,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                {terminalLogs.map((log, i) => (
-                  <p key={i} className={log.includes('[ERROR]') ? 'text-[#ff5f56]' : (log.includes('[SUCCESS]') ? 'text-[#27c93f]' : 'text-white/80')}>
-                    {log}
-                  </p>
-                ))}
-                
                 <p className="mt-4 text-white">user@lumina-os:~$ <span className="animate-pulse">_</span></p>
-                <div ref={terminalEndRef} />
               </div>
             </div>
           </div>

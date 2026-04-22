@@ -11,7 +11,7 @@ use git2::{
 use serde::{Deserialize, Serialize};
 
 use sysinfo::{System, Disks};
-use tauri::{command, Emitter, Manager, State, Window};
+use tauri::{command, Emitter, State, Window};
 
 struct AppState {
     child_process: Mutex<Option<std::process::Child>>,
