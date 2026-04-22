@@ -486,8 +486,14 @@ fn fast_forward(repo: &Repository, branch: &str, force: bool) -> Result<(), Stri
         let target_oid = annotated.id();
         
         let reference_name = format!("refs/heads/{branch}");
-        if let Ok(mut reference) = repo.find_reference(&reference_name) {
-            reference.set_target(target_oid, "force override").map_err(|e| format!("更新本地分支失败: {e}"))?;
+        match repo.find_reference(&reference_name) {
+            Ok(mut reference) => {
+                reference.set_target(target_oid, "force override").map_err(|e| format!("更新本地分支失败: {e}"))?;
+            }
+            Err(_) => {
+                repo.reference(&reference_name, target_oid, true, "create local branch")
+                    .map_err(|e| format!("创建本地分支失败: {e}"))?;
+            }
         }
         
         repo.set_head(&reference_name).map_err(|e| format!("切换分支头失败: {e}"))?;
