@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-22 - Completed quick task 260422: 修复读取当前分支失败 (UnbornBranch)
+2026-04-22 - Completed quick task 260422-hbc: 修复仓库缺少 release.log 文件错误处理逻辑
 
 ---
 
@@ -15,6 +15,7 @@
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260422-hbc-release-log | 修复仓库缺少 release.log 文件错误处理逻辑 | 2026-04-22 | | [260422-hbc-release-log](./quick/260422-hbc-release-log/) |
 | 260422-unborn-branch-fix | 修复读取当前分支失败 (UnbornBranch) | 2026-04-22 | 4192794 | [260422-unborn-branch-fix](./quick/260422-unborn-branch-fix/) |
 | 260421-v2i | 使用merge_analysis改进ahead/behind计算 | 2026-04-21 | 8ffd7e8 | [260421-v2i-merge-analysis-ahead-behind](./quick/260421-v2i-merge-analysis-ahead-behind/) |
 | 260421-uxn | 修复ahead behind计算不准确问题 | 2026-04-21 | 9103747 | [260421-uxn-ahead-behind](./quick/260421-uxn-ahead-behind/) |
