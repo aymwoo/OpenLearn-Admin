@@ -1,32 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import Dashboard from './page';
 
-vi.mock('@/lib/git', () => ({
-  loadConfig: vi.fn(async () => ({
-    remoteUrl: 'https://example.com/repo.git',
-    localPath: '/repo',
-    branch: 'main',
-    forcePush: false,
-    backupBeforePull: true,
-    versionFilePath: 'release.log',
-    changelogFilePath: 'CHANGELOG.md',
+vi.mock('@/lib/sys', () => ({
+  getSystemInfo: vi.fn(async () => ({
+    uptime: 100000,
+    cpuUsage: 12,
+    memoryTotal: 1024 * 1024 * 1024 * 16,
+    memoryUsed: 1024 * 1024 * 1024 * 8,
+    diskTotal: 1024 * 1024 * 1024 * 1024 * 2,
+    diskAvailable: 1024 * 1024 * 1024 * 1024,
   })),
+}));
+
+vi.mock('@/lib/git', () => ({
+  loadConfig: vi.fn(async () => ({ branch: 'main', localPath: '/path' })),
   getDashboardData: vi.fn(async () => ({
-    status: { currentBranch: 'main', hasUpdates: true, localVersion: 'v1', remoteVersion: 'v2' },
+    status: {
+      ahead: 0,
+      behind: 0,
+    },
     local: {
-      version: 'v1',
-      branch: 'main',
-      lastFetchedAt: '2026-04-21 10:00:00',
       changelogSection: 'local log',
-      source: 'local',
     },
     remote: {
-      version: 'v2',
-      branch: 'main',
       changelogSection: 'remote log',
-      source: 'remote',
     },
   })),
   getRemoteStatus: vi.fn(async () => ({ hasUpdates: true, behind: 1, branch: 'main' })),
@@ -48,7 +47,7 @@ vi.mock('@/lib/git', () => ({
 }));
 
 describe('Dashboard', () => {
-  it('renders version comparison and staged progress state', async () => {
+  it('renders correctly', async () => {
     render(<Dashboard />);
 
     expect(await screen.findByText('本地版本')).toBeInTheDocument();

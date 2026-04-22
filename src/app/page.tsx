@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { getSystemInfo, type SystemInfo } from '@/lib/sys';
 import {
   type DashboardData,
   type SystemInfo,
@@ -15,9 +16,6 @@ import {
   listenPullProgress,
   loadConfig,
   runSmartPull,
-  startService,
-  stopService,
-  listenServiceLog,
 } from '@/lib/git';
 
 export default function Dashboard() {
@@ -110,27 +108,57 @@ export default function Dashboard() {
       unlisten = dispose;
     }).catch(() => {});
 
-    let unlistenService: (() => void) | undefined;
-    listenServiceLog((log) => {
-      if (mounted) {
-        setTerminalLogs(prev => [...prev.slice(-99), log]);
-      }
-    }).then((dispose) => {
-      unlistenService = dispose;
-    }).catch(() => {});
+
 
     return () => {
       mounted = false;
       unlisten?.();
-      unlistenService?.();
     };
   }, []);
 
   useEffect(() => {
-    if (terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [terminalLogs]);
+    let mounted = true;
+
+    const fetchSysInfo = async () => {
+      try {
+        const info = await getSystemInfo();
+        if (mounted) {
+          setSysInfo(info);
+        }
+      } catch (err) {
+        console.error('Failed to get system info:', err);
+      }
+    };
+
+    fetchSysInfo();
+    const interval = setInterval(fetchSysInfo, 2000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return { value: 0, unit: 'B' };
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return {
+      value: parseFloat((bytes / Math.pow(k, i)).toFixed(1)),
+      unit: sizes[i]
+    };
+  };
+
+  const formatUptime = (seconds: number) => {
+    const days = Math.floor(seconds / (3600 * 24));
+    if (days > 0) return { value: days, unit: '天' };
+    const hours = Math.floor(seconds % (3600 * 24) / 3600);
+    if (hours > 0) return { value: hours, unit: '小时' };
+    const minutes = Math.floor(seconds % 3600 / 60);
+    return { value: minutes, unit: '分钟' };
+  };
+
 
   const handlePull = async () => {
     if (!config) return;
@@ -145,8 +173,12 @@ export default function Dashboard() {
       setRemoteDetails(result.remote);
       setProgress({ stage: 'done', percent: 100, label: result.message });
 
-      const data = await getDashboardData(config);
-      applyDashboardData(data);
+      setStatus({
+        currentBranch: config.branch,
+        hasUpdates: result.local.version !== result.remote.version,
+        localVersion: result.local.version,
+        remoteVersion: result.remote.version,
+      });
 
       const rs = await getRemoteStatus(config.localPath);
       setRemoteStatus(rs);
@@ -166,33 +198,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartService = async () => {
-    if (!config) return;
-    setLoading(true);
-    setTerminalLogs(prev => [...prev, 'Starting service...']);
-    try {
-      const msg = await startService(config.localPath);
-      setServiceRunning(true);
-      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
-    } catch (e) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopService = async () => {
-    setLoading(true);
-    try {
-      const msg = await stopService();
-      setServiceRunning(false);
-      setTerminalLogs(prev => [...prev, `[SUCCESS] ${msg}`]);
-    } catch (e) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${String(e)}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!config) {
     return (
@@ -205,7 +210,8 @@ export default function Dashboard() {
   // Derived state calculations
   const localVer = localDetails?.version ?? status?.localVersion ?? '-';
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? '-';
-  const isUpToDate = remoteStatus ? remoteStatus.behind === 0 : !status?.hasUpdates;
+  const isUpToDate = !status?.hasUpdates;
+  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -267,24 +273,30 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-3">
-              <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
-                  <span className="material-symbols-outlined">database</span>
+              <button
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Database Status"
+                title="Database Status"
+              >
+                  <span className="material-symbols-outlined" aria-hidden="true">database</span>
               </button>
-              <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
-                  <span className="material-symbols-outlined">cloud_done</span>
+              <button
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Sync Status"
+                title="Sync Status"
+              >
+                  <span className="material-symbols-outlined" aria-hidden="true">cloud_done</span>
               </button>
-              <Link href="/settings" className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
-                  <span className="material-symbols-outlined">settings</span>
+              <Link
+                href="/settings"
+                className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Settings"
+                title="Settings"
+              >
+                  <span className="material-symbols-outlined" aria-hidden="true">settings</span>
               </Link>
             </div>
-            <div className="flex space-x-3">
-              <button onClick={handleStopService} disabled={loading || !serviceRunning} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
-                Stop Service
-              </button>
-              <button onClick={handleStartService} disabled={loading || serviceRunning} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
-                Start Service
-              </button>
-            </div>
+
             <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-on-surface-variant">person</span>
             </div>
@@ -402,6 +414,8 @@ export default function Dashboard() {
                     <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${sysInfo?.dbSizePercentage ?? 45}%` }}></div>
                   </div>
                 </div>
+                <p className="text-xs text-on-surface-variant mt-2">按磁盘总容量的 15% 估算，仅供参考</p>
+              </div>
 
                 {/* Metric 3 */}
                 <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
@@ -416,6 +430,10 @@ export default function Dashboard() {
                     <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: `${sysInfo?.cpuUsage ?? 42}%` }}></div>
                   </div>
                 </div>
+                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, sysInfo.cpuUsage)) : 0}%` }}></div>
+                </div>
+              </div>
 
                 {/* Metric 4 */}
                 <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
@@ -429,6 +447,14 @@ export default function Dashboard() {
                     <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${sysInfo?.memUsagePercentage ?? 50}%` }}></div>
                   </div>
                 </div>
+                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
+                  {sysInfo ? formatBytes(sysInfo.memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ''}</span>
+                </h4>
+                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}` : '-'} 总计</p>
+                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
+                </div>
+              </div>
 
                 {/* Metric 5 */}
                 <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
@@ -446,6 +472,14 @@ export default function Dashboard() {
                   <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
                     <div className="bg-cyan-500 h-2 rounded-full" style={{ width: `${sysInfo?.diskUsagePercentage ?? 58}%` }}></div>
                   </div>
+                  <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : '-'} 总计</p>
+                </div>
+                <div className="flex items-end justify-between mb-2">
+                  <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatBytes(sysInfo.diskAvailable).value : '-'} <span className="text-base text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ''} 可用</span></h4>
+                  <span className="text-sm font-semibold text-on-surface">{sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100).toFixed(0) : 0}% 已用</span>
+                </div>
+                <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
+                  <div className="bg-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
                 </div>
               </div>
             </div>
@@ -459,7 +493,7 @@ export default function Dashboard() {
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {serviceRunning && <span className="flex w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>}
+
                   <p className="text-white/30 text-xs tracking-wider">SYSTEM_TERMINAL</p>
                 </div>
               </div>
@@ -472,14 +506,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                {terminalLogs.map((log, i) => (
-                  <p key={i} className={log.includes('[ERROR]') ? 'text-[#ff5f56]' : (log.includes('[SUCCESS]') ? 'text-[#27c93f]' : 'text-white/80')}>
-                    {log}
-                  </p>
-                ))}
-                
                 <p className="mt-4 text-white">user@lumina-os:~$ <span className="animate-pulse">_</span></p>
-                <div ref={terminalEndRef} />
               </div>
             </div>
           </div>
