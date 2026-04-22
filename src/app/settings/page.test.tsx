@@ -37,6 +37,13 @@ describe('Settings', () => {
     expect(changelogInput).toHaveValue('CHANGELOG.md');
 
     fireEvent.change(versionInput, { target: { value: 'custom/release.log' } });
+
+    const localPathInput = screen.getByLabelText('本地路径');
+    fireEvent.change(localPathInput, { target: { value: '/test/path' } });
+
+    const remoteUrlInput = screen.getByLabelText('远端仓库地址');
+    fireEvent.change(remoteUrlInput, { target: { value: 'http://test' } });
+
     fireEvent.change(changelogInput, { target: { value: 'docs/CHANGELOG.md' } });
 
     // Test the new web service URL
