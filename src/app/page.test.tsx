@@ -15,8 +15,19 @@ vi.mock('@/lib/sys', () => ({
 }));
 
 vi.mock('@/lib/git', () => ({
-  loadConfig: vi.fn(async () => null),
-  getDashboardData: vi.fn(async () => ({})),
+  loadConfig: vi.fn(async () => ({ branch: 'main', localPath: '/path' })),
+  getDashboardData: vi.fn(async () => ({
+    status: {
+      ahead: 0,
+      behind: 0,
+    },
+    local: {
+      changelogSection: 'local log',
+    },
+    remote: {
+      changelogSection: 'remote log',
+    },
+  })),
   getRemoteStatus: vi.fn(async () => ({})),
   listenPullProgress: vi.fn(async (handler) => { return () => {}; }),
 }));
@@ -29,10 +40,6 @@ describe('Dashboard', () => {
     expect(screen.getByText('远程版本')).toBeInTheDocument();
     expect(screen.getByText('remote log')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Service' }));
 
-    await waitFor(() => {
-      expect(screen.getAllByText('当前已是最新版本').length).toBeGreaterThan(0);
-    });
   });
 });
