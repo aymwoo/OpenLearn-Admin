@@ -67,11 +67,13 @@ export default function Dashboard() {
         }
         applyDashboardData(data);
 
-        // Get ahead/behind/lastCommitTime
-        const rs = await getRemoteStatus(cfg.localPath);
+        // Get ahead/behind/lastCommitTime (Background)
+        getRemoteStatus(cfg.localPath, cfg.branch)
+          .then((rs) => { if (mounted) setRemoteStatus(rs); })
+          .catch(() => {});
+
         const info = await getSystemInfo();
         if (mounted) {
-          setRemoteStatus(rs);
           setSysInfo(info);
         }
       } catch (error) {
@@ -89,14 +91,15 @@ export default function Dashboard() {
               remoteVersion: undefined,
             });
             setMessage('本地仓库未初始化，请点击"System Update"自动克隆仓库');
-            const rs = await getRemoteStatus(cfg.localPath);
-            if (mounted) setRemoteStatus(rs);
+            getRemoteStatus(cfg.localPath, cfg.branch)
+              .then((rs) => { if (mounted) setRemoteStatus(rs); })
+              .catch(() => {});
           }
         } else if (errMsg.includes("读取不到信息")) {
           if (mounted) {
-            const rs = await getRemoteStatus(cfg.localPath);
-            setMessage(errMsg);
-            if (mounted) setRemoteStatus(rs);
+            getRemoteStatus(cfg.localPath, cfg.branch)
+              .then((rs) => { if (mounted) setRemoteStatus(rs); })
+              .catch(() => {});
           }
         } else if (mounted) {
           setStatus({
@@ -106,8 +109,9 @@ export default function Dashboard() {
             remoteVersion: undefined,
           });
           setMessage(errMsg);
-          const rs = await getRemoteStatus(cfg.localPath);
-          if (mounted) setRemoteStatus(rs);
+          getRemoteStatus(cfg.localPath, cfg.branch)
+            .then((rs) => { if (mounted) setRemoteStatus(rs); })
+            .catch(() => {});
         }
       }
     };
@@ -220,8 +224,10 @@ export default function Dashboard() {
         remoteVersion: result.remote.version,
       });
 
-      const rs = await getRemoteStatus(config.localPath);
-      setRemoteStatus(rs);
+      // 更新后异步刷新 Git 状态
+      getRemoteStatus(config.localPath, config.branch)
+        .then((rs) => setRemoteStatus(rs))
+        .catch(() => {});
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : String(error);
@@ -231,9 +237,31 @@ export default function Dashboard() {
         stage: "error",
         label: nextMessage,
       }));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      const rs = await getRemoteStatus(config.localPath);
-      setRemoteStatus(rs);
+  const refreshData = async () => {
+    if (!config) return;
+    setLoading(true);
+    try {
+      const result = await getDashboardData();
+      setLocalDetails(result.local);
+      setRemoteDetails(result.remote);
+      setStatus({
+        currentBranch: config.branch,
+        hasUpdates: result.local.version !== result.remote.version,
+        localVersion: result.local.version,
+        remoteVersion: result.remote.version,
+      });
+
+      // 异步获取 Git 状态，不阻塞主界面加载
+      getRemoteStatus(config.localPath, config.branch)
+        .then((rs) => setRemoteStatus(rs))
+        .catch((err) => console.error("后台获取 Git 状态失败:", err));
+    } catch (error) {
+      console.error("刷新数据失败:", error);
     } finally {
       setLoading(false);
     }
@@ -252,7 +280,11 @@ export default function Dashboard() {
   // Derived state calculations
   const localVer = localDetails?.version ?? status?.localVersion ?? "-";
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? "-";
-  const isUpToDate = !status?.hasUpdates;
+  const isUpToDate = remoteStatus
+    ? remoteStatus.behind === 0 &&
+      (remoteStatus.ahead > 0 || localVer === remoteVer)
+    : !status?.hasUpdates;
+  const isAhead = remoteStatus ? remoteStatus.ahead > 0 : false;
   const uptime = sysInfo
     ? (sysInfo as any).uptime
       ? formatUptime((sysInfo as any).uptime)
@@ -352,7 +384,11 @@ export default function Dashboard() {
                 className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(1,90,193,0.5)] ${isUpToDate ? "bg-[#34a853]" : "bg-[#fbbc04]"}`}
               ></div>
               <span className="text-xs font-semibold text-on-surface">
-                {isUpToDate ? "系统正常" : "需要更新"}
+                {isUpToDate
+                  ? isAhead
+                    ? "本地领先"
+                    : "系统正常"
+                  : "需要更新"}
               </span>
             </div>
           </div>
@@ -431,14 +467,20 @@ export default function Dashboard() {
                       {progress.percent > 0 && progress.percent < 100
                         ? `${Math.round(progress.percent)}%`
                         : isUpToDate
-                          ? "系统已经是最新"
+                          ? isAhead
+                            ? "系统领先于远程"
+                            : "系统已经是最新"
                           : "发现新版本"}
                     </h3>
                     <p className="text-on-primary-container text-sm">
                       {progress.label ||
                         (isUpToDate
-                          ? "所有核心服务正在最佳状态运行。"
-                          : "推荐执行系统更新以获取最新特性。")}
+                          ? isAhead
+                            ? `本地领先远程 ${remoteStatus?.ahead || 0} 个提交。`
+                            : "所有核心服务正在最佳状态运行。"
+                          : (remoteStatus?.behind || 0) > 0
+                            ? `落后远程 ${remoteStatus.behind} 个提交，建议更新。`
+                            : "检测到远程有新版本，建议同步仓库。")}
                     </p>
                   </div>
                   <button
@@ -504,22 +546,17 @@ export default function Dashboard() {
                 <div className="min-w-0">
                   <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center space-x-2">
-                      <p className="text-xs text-on-surface-variant font-semibold tracking-wider">
+                      <p className="text-sm text-on-surface-variant font-semibold tracking-wider">
                         本地版本
                       </p>
                       <span
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-sm ${localVer.toLowerCase().match(/(beta|rc|alpha)/) ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30" : "text-primary bg-primary/10"}`}
+                        className={`text-[12px] font-semibold px-1.5 py-0.5 rounded-sm ${localVer.toLowerCase().match(/(beta|rc|alpha)/) ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30" : "text-primary bg-primary/10"}`}
                       >
                         {localVer.toLowerCase().match(/(beta|rc|alpha)/)
                           ? "测试版"
                           : "稳定版"}
                       </span>
                     </div>
-                    {remoteStatus && remoteStatus.ahead > 0 && (
-                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md">
-                        领先 {remoteStatus.ahead} 个提交
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-baseline space-x-2 min-w-0">
                     <span
@@ -534,22 +571,33 @@ export default function Dashboard() {
                 <div className="min-w-0">
                   <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center space-x-2">
-                      <p className="text-xs text-on-surface-variant font-semibold tracking-wider">
+                      <p className="text-sm text-on-surface-variant font-semibold tracking-wider">
                         远程版本
                       </p>
                       <span
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-sm ${remoteVer.toLowerCase().match(/(beta|rc|alpha)/) ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30" : "text-primary bg-primary/10"}`}
+                        className={`text-[12px] font-semibold px-1.5 py-0.5 rounded-sm ${remoteVer.toLowerCase().match(/(beta|rc|alpha)/) ? "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30" : "text-primary bg-primary/10"}`}
                       >
                         {remoteVer.toLowerCase().match(/(beta|rc|alpha)/)
                           ? "测试版"
                           : "稳定版"}
                       </span>
+                      {remoteStatus && (
+                        <div className="flex items-center space-x-1.5 ml-1 bg-slate-100/50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-full">
+                          <span
+                            className={`flex items-center ${remoteStatus.ahead > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}
+                          >
+                            <span className="material-symbols-outlined text-[5px] mr-0.5">north</span>
+                            <span className="text-[13px] font-bold tabular-nums">{remoteStatus.ahead}</span>
+                          </span>
+                          <span
+                            className={`flex items-center ${remoteStatus.behind > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"}`}
+                          >
+                            <span className="material-symbols-outlined text-[5px] mr-0.5">south</span>
+                            <span className="text-[13px] font-bold tabular-nums">{remoteStatus.behind}</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    {remoteStatus && remoteStatus.behind > 0 && (
-                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-md">
-                        落后 {remoteStatus.behind} 个提交
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-baseline space-x-2 min-w-0">
                     <span

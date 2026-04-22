@@ -328,14 +328,20 @@ fn remote_callbacks() -> RemoteCallbacks<'static> {
 }
 
 fn fetch_branch(repo: &Repository, branch: &str) -> Result<(), String> {
-    let branch = default_branch(branch);
+    let branch_name = default_branch(branch);
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(remote_callbacks());
 
-    repo.find_remote("origin")
-        .map_err(|e| format!("找不到远端 origin: {e}"))?
-        .fetch(&[branch], Some(&mut fetch_options), None)
-        .map_err(|e| format!("拉取远端引用失败: {e}"))
+    let mut remote = repo
+        .find_remote("origin")
+        .map_err(|e| format!("找不到远端 origin: {e}"))?;
+
+    // 使用显式 refspec 确保更新远程跟踪分支
+    let refspec = format!("+refs/heads/{}:refs/remotes/origin/{}", branch_name, branch_name);
+    
+    remote
+        .fetch(&[&refspec], Some(&mut fetch_options), None)
+        .map_err(|e| format!("拉取远端引用失败 ({branch_name}): {e}"))
 }
 
 fn get_head_branch(repo: &Repository) -> Result<String, String> {
@@ -950,7 +956,7 @@ fn execute_repo_recovery(config: GitConfig, confirmed: bool) -> Result<String, S
 }
 
 #[command]
-fn git_status(path: String) -> Result<serde_json::Value, String> {
+fn git_status(path: String, branch: Option<String>) -> Result<serde_json::Value, String> {
     let path = Path::new(&path);
 
     if !path.exists() {
@@ -973,8 +979,33 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
     }
 
     let repo = open_repo(&path.to_string_lossy())?;
-    let branch = get_head_branch(&repo)?;
-    fetch_branch(&repo, &branch)?;
+    
+    // 动态检测远程名称，优先使用 origin
+    let remote_name = repo.find_remote("origin").ok().map(|_| "origin".to_string())
+        .or_else(|| repo.remotes().ok().and_then(|r| r.get(0).map(|s| s.to_string())))
+        .unwrap_or_else(|| "origin".to_string());
+
+    let branch = if let Some(ref b) = branch {
+        if b.trim().is_empty() {
+            get_head_branch(&repo)?
+        } else {
+            b.clone()
+        }
+    } else {
+        get_head_branch(&repo)?
+    };
+
+    // 改进 fetch 逻辑
+    {
+        let mut remote = repo
+            .find_remote(&remote_name)
+            .map_err(|e| format!("找不到远程 {}: {}", remote_name, e))?;
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.remote_callbacks(remote_callbacks());
+        let refspec = format!("+refs/heads/{}:refs/remotes/{}/{}", branch, remote_name, branch);
+        remote.fetch(&[&refspec], Some(&mut fetch_options), None)
+            .map_err(|e| format!("拉取失败 ({}/{}): {}", remote_name, branch, e))?;
+    }
 
     let local_oid = repo
         .head()
@@ -982,15 +1013,16 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         .target()
         .unwrap_or(Oid::zero());
 
-    // 尝试多个remote reference路径
-    let remote_oid = match repo.find_reference(&format!("refs/remotes/origin/{branch}")) {
+    // 尝试多个远程引用路径
+    let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch);
+    let remote_oid = match repo.find_reference(&remote_ref_name) {
         Ok(reference) => reference.target().unwrap_or(Oid::zero()),
         Err(_) => {
-            // 尝试远端默认分支路径
-            match repo.find_reference("refs/remotes/origin/HEAD") {
+            let head_ref_name = format!("refs/remotes/{}/HEAD", remote_name);
+            match repo.find_reference(&head_ref_name) {
                 Ok(reference) => reference.target().unwrap_or(Oid::zero()),
                 Err(e) => {
-                    log::warn!("无法找到远端引用 origin/{}: {}", branch, e);
+                    log::warn!("无法找到远程引用 {} 或 {}: {}", remote_ref_name, head_ref_name, e);
                     Oid::zero()
                 }
             }
@@ -998,7 +1030,8 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
     };
 
     log::info!(
-        "git_status: branch={}, local_oid={}, remote_oid={}",
+        "git_status: remote={}, branch={}, local_oid={}, remote_oid={}",
+        remote_name,
         branch,
         local_oid,
         remote_oid
@@ -1006,24 +1039,11 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
 
     // 使用 graph_ahead_behind 计算 ahead/behind
     let (ahead, behind) = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
-        match repo.find_reference(&format!("refs/remotes/origin/{}", branch)) {
-            Ok(remote_ref) => {
-                if let Some(remote_target) = remote_ref.target() {
-                    repo.graph_ahead_behind(local_oid, remote_target)
-                        .unwrap_or_else(|e| {
-                            log::warn!("计算 ahead/behind 失败: {}", e);
-                            (0, 0)
-                        })
-                } else {
-                    log::warn!("git_status: remote_oid 为空");
-                    (0, 0)
-                }
-            }
-            Err(e) => {
-                log::warn!("无法找到远端引用: {}", e);
+        repo.graph_ahead_behind(local_oid, remote_oid)
+            .unwrap_or_else(|e| {
+                log::warn!("计算 ahead/behind 失败: {}", e);
                 (0, 0)
-            }
-        }
+            })
     } else {
         if local_oid == Oid::zero() {
             log::warn!("git_status: local_oid 为空");
@@ -1049,10 +1069,13 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         .unwrap_or_else(|| "Unknown".to_string());
 
     Ok(serde_json::json!({
+        "remote": remote_name,
         "branch": branch,
         "hasUpdates": behind > 0,
         "ahead": ahead,
         "behind": behind,
+        "local_oid": local_oid.to_string(),
+        "remote_oid": remote_oid.to_string(),
         "lastCommitTime": last_commit_time,
     }))
 }
