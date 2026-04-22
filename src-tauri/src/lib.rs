@@ -69,17 +69,6 @@ enum DirectoryState {
     MissingFile(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RepoRecoveryInfo {
-    state: DirectoryState,
-    needs_confirmation: bool,
-    message: String,
-    local_path: String,
-    remote_url: Option<String>,
-    backup_path: Option<String>,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GitConfig {
@@ -799,165 +788,6 @@ fn git_pull(path: String, force: bool) -> Result<String, String> {
 }
 
 #[command]
-fn ensure_repo_ready(config: GitConfig) -> Result<RepoRecoveryInfo, String> {
-    let path = Path::new(&config.local_path);
-    let state = check_repo_health(path, &config.version_file_path, &config.changelog_file_path);
-    
-    match state {
-        DirectoryState::Valid => Ok(RepoRecoveryInfo {
-            state: DirectoryState::Valid,
-            needs_confirmation: false,
-            message: "仓库状态正常".to_string(),
-            local_path: config.local_path,
-            remote_url: None,
-            backup_path: None,
-        }),
-        
-        DirectoryState::Empty => {
-            if config.remote_url.trim().is_empty() {
-                return Err("本地目录为空且未配置 remote_url，无法自动克隆".to_string());
-            }
-            Ok(RepoRecoveryInfo {
-                state: DirectoryState::Empty,
-                needs_confirmation: false,
-                message: "本地目录为空，将自动克隆仓库".to_string(),
-                local_path: config.local_path,
-                remote_url: Some(config.remote_url.clone()),
-                backup_path: None,
-            })
-        }
-        
-        DirectoryState::NonExistent => {
-            if config.remote_url.trim().is_empty() {
-                return Err("本地仓库路径不存在且未配置 remote_url，无法自动克隆".to_string());
-            }
-            fs::create_dir_all(path).map_err(|e| format!("创建目录失败: {e}"))?;
-            Ok(RepoRecoveryInfo {
-                state: DirectoryState::NonExistent,
-                needs_confirmation: false,
-                message: "本地目录不存在，已创建目录，将自动克隆仓库".to_string(),
-                local_path: config.local_path,
-                remote_url: Some(config.remote_url.clone()),
-                backup_path: None,
-            })
-        }
-        
-        DirectoryState::ExistingRepo => {
-            if config.remote_url.trim().is_empty() {
-                return Err("本地仓库已存在且文件缺失，请配置 remote_url 后重试".to_string());
-            }
-            let backup_path = format!(
-                "{}.backup-{}",
-                &config.local_path,
-                Local::now().format("%Y-%m-%dT%H-%M-%S")
-            );
-            Ok(RepoRecoveryInfo {
-                state: DirectoryState::ExistingRepo,
-                needs_confirmation: true,
-                message: "本地仓库已存在，是否要备份并重新克隆？".to_string(),
-                local_path: config.local_path,
-                remote_url: Some(config.remote_url.clone()),
-                backup_path: Some(backup_path),
-            })
-        }
-        
-        DirectoryState::InvalidRepo => {
-            if config.remote_url.trim().is_empty() {
-                return Err("本地目录不是有效的 Git 仓库且未配置 remote_url，无法自动克隆".to_string());
-            }
-            let backup_path = if path.exists() {
-                let is_empty = is_directory_empty(path).unwrap_or(true);
-                if !is_empty {
-                    let backup = format!(
-                        "{}.backup-{}",
-                        &config.local_path,
-                        Local::now().format("%Y-%m-%dT%H-%M-%S")
-                    );
-                    copy_dir_recursive(path, Path::new(&backup)).map_err(|e| format!("备份失败: {e}"))?;
-                    Some(backup)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-            if path.exists() {
-                fs::remove_dir_all(path).map_err(|e| format!("清理目录失败: {e}"))?;
-            }
-            fs::create_dir_all(path).map_err(|e| format!("创建目录失败: {e}"))?;
-            Ok(RepoRecoveryInfo {
-                state: DirectoryState::InvalidRepo,
-                needs_confirmation: false,
-                message: "本地目录无效，已清理并准备克隆".to_string(),
-                local_path: config.local_path,
-                remote_url: Some(config.remote_url.clone()),
-                backup_path,
-            })
-        }
-        
-        DirectoryState::MissingFile(ref missing) => {
-            if config.remote_url.trim().is_empty() {
-                return Err(format!("本地仓库缺少文件 {} 且未配置 remote_url，无法重新克隆", missing));
-            }
-            let backup_path = format!(
-                "{}.backup-{}",
-                &config.local_path,
-                Local::now().format("%Y-%m-%dT%H-%M-%S")
-            );
-            Ok(RepoRecoveryInfo {
-                state: DirectoryState::MissingFile(missing.clone()),
-                needs_confirmation: true,
-                message: format!("本地仓库缺少文件 {}，是否要备份并重新克隆？", missing),
-                local_path: config.local_path,
-                remote_url: Some(config.remote_url.clone()),
-                backup_path: Some(backup_path),
-            })
-        }
-    }
-}
-
-#[command]
-fn execute_repo_recovery(config: GitConfig, confirmed: bool) -> Result<String, String> {
-    let path = Path::new(&config.local_path);
-    let state = check_repo_health(path, &config.version_file_path, &config.changelog_file_path);
-    
-    if state == DirectoryState::Valid {
-        return Ok("仓库状态正常，无需操作".to_string());
-    }
-    
-    match &state {
-        DirectoryState::ExistingRepo | DirectoryState::MissingFile(_) => {
-            if !confirmed {
-                return Err("用户取消操作".to_string());
-            }
-            
-            let backup_path = format!(
-                "{}.backup-{}",
-                &config.local_path,
-                Local::now().format("%Y-%m-%dT%H-%M-%S")
-            );
-            copy_dir_recursive(path, Path::new(&backup_path)).map_err(|e| format!("备份失败: {e}"))?;
-            fs::remove_dir_all(path).map_err(|e| format!("清理目录失败: {e}"))?;
-            fs::create_dir_all(path).map_err(|e| format!("创建目录失败: {e}"))?;
-        }
-        _ => {}
-    }
-    
-    let branch = default_branch(&config.branch).to_string();
-    git2::build::RepoBuilder::new()
-        .branch(&branch)
-        .fetch_options({
-            let mut options = FetchOptions::new();
-            options.remote_callbacks(remote_callbacks());
-            options
-        })
-        .clone(&config.remote_url, path)
-        .map_err(|e| format!("克隆仓库失败: {e}"))?;
-    
-    Ok("仓库恢复成功".to_string())
-}
-
-#[command]
 fn git_status(path: String, branch: Option<String>) -> Result<serde_json::Value, String> {
     let path = Path::new(&path);
 
@@ -1481,7 +1311,7 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     setup_graphics_workarounds();
-    tauri::Builder::default()
+    if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             child_process: Mutex::new(None),
             system: Mutex::new(System::new_all()),
@@ -1508,7 +1338,8 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!()) {
+            eprintln!("error while running tauri application: {}", e);
+        }
 }
 // Triggering new build to clear potential cache issues
