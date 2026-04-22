@@ -246,7 +246,7 @@ export default function Dashboard() {
     if (!config) return;
     setLoading(true);
     try {
-      const result = await getDashboardData();
+      const result = await getDashboardData(config);
       setLocalDetails(result.local);
       setRemoteDetails(result.remote);
       setStatus({
@@ -285,11 +285,7 @@ export default function Dashboard() {
       (remoteStatus.ahead > 0 || localVer === remoteVer)
     : !status?.hasUpdates;
   const isAhead = remoteStatus ? remoteStatus.ahead > 0 : false;
-  const uptime = sysInfo
-    ? (sysInfo as any).uptime
-      ? formatUptime((sysInfo as any).uptime)
-      : sysInfo.uptimeDays + "天"
-    : null;
+  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -457,7 +453,7 @@ export default function Dashboard() {
           <div className="flex flex-col space-y-6">
             {/* Row 1: System Status and Version */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <div className="col-span-1 md:col-span-3 bg-gradient-to-br from-primary to-primary-container rounded-xl p-8 text-on-primary relative overflow-hidden shadow-[0_12px_40px_rgba(0,67,148,0.08)]">
+              <div className={`col-span-1 md:col-span-3 bg-gradient-to-br rounded-xl p-8 text-on-primary relative overflow-hidden transition-all duration-500 shadow-[0_12px_40px_rgba(0,67,148,0.08)] ${isUpToDate ? "from-primary to-primary-container" : "from-orange-500 to-orange-600"}`}>
                 <div className="relative z-10 flex justify-between items-center h-full">
                   <div>
                     <p className="text-sm font-semibold opacity-80 mb-2">
@@ -472,14 +468,14 @@ export default function Dashboard() {
                             : "系统已经是最新"
                           : "发现新版本"}
                     </h3>
-                    <p className="text-on-primary-container text-sm">
+                    <p className={`text-sm ${isUpToDate ? "text-on-primary-container" : "text-orange-50/90"}`}>
                       {progress.label ||
                         (isUpToDate
                           ? isAhead
                             ? `本地领先远程 ${remoteStatus?.ahead || 0} 个提交。`
                             : "所有核心服务正在最佳状态运行。"
                           : (remoteStatus?.behind || 0) > 0
-                            ? `落后远程 ${remoteStatus.behind} 个提交，建议更新。`
+                            ? `落后远程 ${remoteStatus?.behind} 个提交，建议更新。`
                             : "检测到远程有新版本，建议同步仓库。")}
                     </p>
                   </div>
