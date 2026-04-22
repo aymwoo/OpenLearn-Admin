@@ -239,7 +239,7 @@ export default function Dashboard() {
   const localVer = localDetails?.version ?? status?.localVersion ?? '-';
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? '-';
   const isUpToDate = !status?.hasUpdates;
-  const uptime = sysInfo ? (sysInfo as any).uptime ? formatUptime((sysInfo as any).uptime) : sysInfo.uptimeDays + '天' : null;
+  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -436,89 +436,75 @@ export default function Dashboard() {
             </div>
 
             {/* Row 2: Metrics */}
-            <div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {/* Metric 1 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center relative overflow-hidden group">
-                  <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <span className="material-symbols-outlined text-9xl text-emerald-500">schedule</span>
-                  </div>
-                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">系统正常运行时间</p>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface truncate pr-4">{uptime ? uptime.value : '-'} <span className="text-base text-on-surface-variant font-semibold">{uptime ? uptime.unit : ''}</span></h4>
-                  <p className="text-xs text-on-surface-variant mt-2">自上次重启</p>
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {/* Metric 1 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center relative overflow-hidden group">
+                <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <span className="material-symbols-outlined text-9xl text-emerald-500">schedule</span>
                 </div>
-                
-                {/* Metric 2 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-amber-500 text-sm">database</span>
-                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">数据库大小</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">{sysInfo ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable).unit : ''}</span></h4>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
-                  </div>
+                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">系统正常运行时间</p>
+                <h4 className="text-2xl font-headline font-bold text-on-surface truncate pr-4">{uptime ? uptime.value : '-'} <span className="text-base text-on-surface-variant font-semibold">{uptime ? uptime.unit : ''}</span></h4>
+                <p className="text-xs text-on-surface-variant mt-2">自上次重启</p>
+              </div>
+
+              {/* Metric 2 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="material-symbols-outlined text-amber-500 text-sm">database</span>
+                  <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">数据库大小</p>
+                </div>
+                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">{sysInfo ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable).unit : ''}</span></h4>
+                <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
                 </div>
                 <p className="text-xs text-on-surface-variant mt-2">按磁盘总容量的 15% 估算，仅供参考</p>
               </div>
 
-                {/* Metric 3 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-rose-500 text-sm">memory</span>
-                    <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">CPU 使用率</p>
-                  </div>
-                  <div className="flex items-baseline space-x-1 mb-1">
-                    <h4 className="text-2xl font-headline font-bold text-on-surface">{sysInfo?.cpuUsage ?? 42}%</h4>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: `${sysInfo?.cpuUsage ?? 42}%` }}></div>
-                  </div>
+              {/* Metric 3 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="material-symbols-outlined text-rose-500 text-sm">memory</span>
+                  <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">CPU 使用率</p>
+                </div>
+                <div className="flex items-baseline space-x-1 mb-1">
+                  <h4 className="text-2xl font-headline font-bold text-on-surface">{sysInfo?.cpuUsage ?? 42}%</h4>
                 </div>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, (sysInfo as any).cpuUsage)) : 0}%` }}></div>
+                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, sysInfo.cpuUsage)) : 0}%` }}></div>
                 </div>
               </div>
 
-                {/* Metric 4 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-purple-500 text-sm">memory_alt</span>
-                    <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">内存使用情况</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">{sysInfo ? formatBytes(sysInfo.memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ''}</span></h4>
-                  <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}` : '-'} 总计</p>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
-                  </div>
+              {/* Metric 4 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="material-symbols-outlined text-purple-500 text-sm">memory_alt</span>
+                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">内存使用情况</p>
                 </div>
-                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
-                  {sysInfo ? formatBytes((sysInfo as any).memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes((sysInfo as any).memoryUsed).unit : ''}</span>
-                </h4>
-                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes((sysInfo as any).memoryTotal).value} ${formatBytes((sysInfo as any).memoryTotal).unit}` : '-'} 总计</p>
+                <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">{sysInfo ? formatBytes(sysInfo.memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ''}</span></h4>
+                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}` : '-'} 总计</p>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && (sysInfo as any).memoryTotal > 0 ? ((sysInfo as any).memoryUsed / (sysInfo as any).memoryTotal) * 100 : 0}%` }}></div>
+                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
                 </div>
               </div>
 
-                {/* Metric 5 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
-                      <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
-                    </div>
-                    <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : '-'} 总计</p>
+              {/* Metric 5 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
+                    <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
                   </div>
-                  <div className="flex items-end justify-between mb-2">
-                    <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatBytes(sysInfo.diskAvailable).value : '-'} <span className="text-base text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ''} 可用</span></h4>
-                    <span className="text-sm font-semibold text-on-surface">{sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100).toFixed(0) : 0}% 已用</span>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
-                    <div className="bg-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
-                  </div>
+                  <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : '-'} 总计</p>
+                </div>
+                <div className="flex items-end justify-between mb-2">
+                  <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatBytes(sysInfo.diskAvailable).value : '-'} <span className="text-base text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ''} 可用</span></h4>
+                  <span className="text-sm font-semibold text-on-surface">{sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100).toFixed(0) : 0}% 已用</span>
+                </div>
+                <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
+                  <div className="bg-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
                 </div>
               </div>
+            </div>
 
             {/* Row 3: Terminal */}
             <div className="bg-[#2b2b2b] dark:bg-black rounded-xl p-4 shadow-sm h-64 flex flex-col font-mono text-sm relative overflow-hidden">
@@ -545,6 +531,8 @@ export default function Dashboard() {
                 <p className="mt-4 text-white">user@lumina-os:~$ <span className="animate-pulse">_</span></p>
               </div>
             </div>
+          </div>
+        </div>
       </main>
     </div>
   );
