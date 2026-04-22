@@ -149,6 +149,18 @@ export default function Settings() {
           />
         </div>
 
+        <div className="mb-6">
+          <label htmlFor="webServiceUrl" className="block text-sm text-[#566167] mb-2">Web 服务 URL</label>
+          <input
+            id="webServiceUrl"
+            type="text"
+            value={config.webServiceUrl || ''}
+            onChange={e => setConfig({ ...config, webServiceUrl: e.target.value })}
+            placeholder="http://127.0.0.1:8000"
+            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+          />
+        </div>
+
         <div className="mb-6 flex items-center justify-between">
           <span className="text-sm text-[#566167]">强制用远端覆盖本地冲突</span>
           <button
