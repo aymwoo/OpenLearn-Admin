@@ -30,8 +30,8 @@ struct SystemInfo {
     disk_available: u64,
 }
 
-#[tauri::command]
-fn get_system_info(state: tauri::State<'_, AppState>) -> Result<SystemInfo, String> {
+#[command]
+fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
     let mut sys = state.system.lock().map_err(|e| format!("锁错误: {}", e))?;
     sys.refresh_all();
 
