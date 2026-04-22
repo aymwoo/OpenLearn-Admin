@@ -118,12 +118,40 @@ export async function pullRepo(path: string, force: boolean = false): Promise<{ 
   }
 }
 
-export async function getRemoteStatus(path: string): Promise<{ hasUpdates: boolean; ahead: number; behind: number; branch: string; lastCommitTime: string }> {
+export async function getRemoteStatus(
+  path: string,
+  branch?: string
+): Promise<{
+  hasUpdates: boolean;
+  ahead: number;
+  behind: number;
+  branch: string;
+  remote?: string;
+  local_oid?: string;
+  remote_oid?: string;
+  lastCommitTime: string;
+}> {
   try {
-    const result = await invoke<{ branch: string; hasUpdates: boolean; ahead: number; behind: number; lastCommitTime: string }>('git_status', { path });
+    const result = await invoke<{
+      branch: string;
+      remote: string;
+      hasUpdates: boolean;
+      ahead: number;
+      behind: number;
+      local_oid: string;
+      remote_oid: string;
+      lastCommitTime: string;
+    }>("git_status", { path, branch });
     return result;
-  } catch {
-    return { hasUpdates: false, ahead: 0, behind: 0, branch: 'main', lastCommitTime: 'Unknown' };
+  } catch (error) {
+    console.error("Git status check failed:", error);
+    return {
+      hasUpdates: false,
+      ahead: 0,
+      behind: 0,
+      branch: branch || "main",
+      lastCommitTime: "Error",
+    };
   }
 }
 
