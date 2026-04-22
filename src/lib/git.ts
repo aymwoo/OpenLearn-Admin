@@ -9,6 +9,7 @@ export interface GitConfig {
   backupBeforePull: boolean;
   versionFilePath: string;
   changelogFilePath: string;
+  webServiceUrl?: string;
 }
 
 const CONFIG_KEY = 'git-updater-config';
@@ -21,6 +22,7 @@ export const DEFAULT_GIT_CONFIG: GitConfig = {
   backupBeforePull: true,
   versionFilePath: 'release.log',
   changelogFilePath: 'CHANGELOG.md',
+  webServiceUrl: 'http://127.0.0.1:8000',
 };
 
 export interface RepoSyncStatus {
@@ -52,6 +54,19 @@ export interface FetchProgress {
     | 'error';
   percent: number;
   label: string;
+}
+
+export interface SystemInfo {
+  uptimeDays: number;
+  dbSizeTb: number;
+  dbSizePercentage: number;
+  cpuUsage: number;
+  memUsageGb: number;
+  memTotalGb: number;
+  memUsagePercentage: number;
+  diskFreeTb: number;
+  diskTotalTb: number;
+  diskUsagePercentage: number;
 }
 
 export interface DashboardData {
@@ -125,10 +140,34 @@ export async function backupRepo(sourcePath: string): Promise<string> {
   return await invoke<string>('git_backup', { sourcePath });
 }
 
-export async function startService(): Promise<string> {
-  return await invoke('start_service');
+export async function startService(path: string): Promise<string> {
+  return await invoke<string>('start_service', { path });
 }
 
 export async function stopService(): Promise<string> {
-  return await invoke('stop_service');
+  return await invoke<string>('stop_service');
+}
+
+export async function listenServiceLog(handler: (log: string) => void): Promise<UnlistenFn> {
+  return listen<string>('service-log', (event) => handler(event.payload));
+}
+
+
+/**
+ * 从已经运行的web服务页面获取系统信息
+ */
+export async function getSystemInfo(url?: string): Promise<SystemInfo> {
+  try {
+    const targetUrl = url || 'http://127.0.0.1:8000';
+    // If targetUrl does not have /api/sysinfo, append it, or we expect full url?
+    // Let's assume the user enters the base url, so we append /api/sysinfo,
+    // or if they enter full url we just use it. Let's assume it's base url.
+    const res = await fetch(`${targetUrl.replace(/\\$/, '')}/api/sysinfo`);
+    if (!res.ok) {
+      throw new Error();
+    }
+    return await res.json();
+  } catch (error) {
+    throw new Error('读取不到信息,请检查web服务是否启动');
+  }
 }

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath, URL } from 'url';
 
 export default defineConfig({
   test: {
@@ -9,7 +10,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/home/wuxf/Develop/openlearnadmin/src',
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
 });
