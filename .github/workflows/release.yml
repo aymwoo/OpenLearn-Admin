@@ -8,6 +8,7 @@ on:
 
 jobs:
   release:
+    name: release (${{ matrix.platform }})
     permissions:
       contents: write
 
@@ -25,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Linux Tauri dependencies
+      # Linux dependencies for Tauri v2
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
         run: |
@@ -49,14 +50,14 @@ jobs:
           version: 9
           run_install: false
 
-      # Node.js 22 LTS
+      # Node.js 22
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      # Rust
+      # Rust stable
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -66,7 +67,7 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-      # Verify env
+      # Verify environment
       - name: Verify environment
         run: |
           node -v
@@ -74,13 +75,13 @@ jobs:
           rustc -V
           cargo -V
 
-      # Install frontend deps
+      # Install frontend dependencies
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      # Build and publish Tauri app
+      # Build and publish Tauri v2 app
       - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
