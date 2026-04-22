@@ -21,12 +21,16 @@ jobs:
           - macos-latest
 
     runs-on: ${{ matrix.platform }}
+    
+    env:
+      # 解决图片中的 Node.js 20 弃用警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Linux dependencies for Tauri v2
+      # Linux 依赖 (针对 Tauri v2 进行了精简和确认)
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
         run: |
@@ -40,58 +44,45 @@ jobs:
             libxdo-dev \
             libssl-dev \
             libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
+            librsvg2-dev
 
-      # pnpm
+      # 使用 pnpm (v9 是当前前沿版本)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-          run_install: false
 
-      # Node.js 22
+      # 升级到 Node.js 22 (LTS) 或 23 (Current)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'pnpm'
 
-      # Rust stable
+      # Rust 环境准备
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          # 针对不同平台添加编译目标
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      # Rust cache
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
-      # Verify environment
-      - name: Verify environment
-        run: |
-          node -v
-          pnpm -v
-          rustc -V
-          cargo -V
-
-      # Install frontend dependencies
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install
 
-      # Build and publish Tauri v2 app
+      # 关键修改：使用适配 Tauri v2 的 Action 版本
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # 自动触发发布逻辑
           tagName: ${{ github.ref_name }}
-          releaseName: Release ${{ github.ref_name }}
-          releaseBody: |
-            Auto generated release for ${{ github.ref_name }}
-
-            Downloads:
-            - Windows: .exe / .msi
-            - macOS: .dmg
-            - Linux: .AppImage / .deb
+          releaseName: "Release ${{ github.ref_name }}"
+          releaseBody: "See the assets below."
           releaseDraft: false
           prerelease: false
