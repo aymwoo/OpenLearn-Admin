@@ -12,6 +12,8 @@ import {
   getRemoteStatus,
   listenPullProgress,
   loadConfig,
+  startService,
+  stopService,
   runSmartPull,
 } from '@/lib/git';
 
@@ -98,6 +100,33 @@ export default function Dashboard() {
       unlisten?.();
     };
   }, []);
+
+
+  const handleStartService = async () => {
+    setLoading(true);
+    setMessage('Starting service...');
+    try {
+      const result = await startService();
+      setMessage(`Service started: ${result}`);
+    } catch (err: any) {
+      setMessage(`Failed to start service: ${err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStopService = async () => {
+    setLoading(true);
+    setMessage('Stopping service...');
+    try {
+      const result = await stopService();
+      setMessage(`Service stopped: ${result}`);
+    } catch (err: any) {
+      setMessage(`Failed to stop service: ${err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePull = async () => {
     if (!config) return;
@@ -220,6 +249,15 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="flex space-x-3">
+
+              <button onClick={handleStartService} disabled={loading} className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-[0_4px_14px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center space-x-1">
+                <span className="material-symbols-outlined text-sm">play_arrow</span>
+                <span>Start Service</span>
+              </button>
+              <button onClick={handleStopService} disabled={loading} className="px-5 py-2 bg-rose-600 text-white rounded-xl font-semibold text-sm hover:bg-rose-700 transition-colors shadow-[0_4px_14px_rgba(225,29,72,0.3)] disabled:opacity-50 flex items-center space-x-1">
+                <span className="material-symbols-outlined text-sm">stop</span>
+                <span>Stop Service</span>
+              </button>
               <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
                 Stop Service
               </button>

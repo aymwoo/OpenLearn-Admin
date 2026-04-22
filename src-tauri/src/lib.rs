@@ -6,6 +6,9 @@ use git2::{
 };
 use serde::{Deserialize, Serialize};
 use tauri::{command, Emitter, Window};
+use std::process::Command;
+use std::env;
+
 
 const PROGRESS_EVENT: &str = "pull-progress";
 
@@ -1003,6 +1006,49 @@ mod tests {
 }
 
 // Set environment variables to help work around GBM/graphics issues in some Linux environments
+
+#[command]
+fn start_service() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let output = Command::new("cmd")
+        .args(["/C", "start_service.bat"])
+        .output()
+        .map_err(|e| format!("Failed to execute start script: {}", e))?;
+
+    #[cfg(not(target_os = "windows"))]
+    let output = Command::new("sh")
+        .arg("start_service.sh")
+        .output()
+        .map_err(|e| format!("Failed to execute start script: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+#[command]
+fn stop_service() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let output = Command::new("cmd")
+        .args(["/C", "stop_service.bat"])
+        .output()
+        .map_err(|e| format!("Failed to execute stop script: {}", e))?;
+
+    #[cfg(not(target_os = "windows"))]
+    let output = Command::new("sh")
+        .arg("stop_service.sh")
+        .output()
+        .map_err(|e| format!("Failed to execute stop script: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
 fn setup_graphics_workarounds() {
     // These can help when GBM fails due to GPU/display issues
     #[cfg(target_os = "linux")]
@@ -1031,6 +1077,8 @@ pub fn run() {
             git_backup,
             get_dashboard_data,
             run_smart_pull,
+            start_service,
+            stop_service,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
