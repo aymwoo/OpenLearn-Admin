@@ -165,6 +165,7 @@ export default function Dashboard() {
 
     setLoading(true);
     setMessage('');
+    setProgress({ stage: 'pulling', percent: 5, label: '开始更新...' });
 
     try {
       const result = await runSmartPull(config);
