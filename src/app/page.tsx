@@ -260,14 +260,27 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-3">
-              <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
-                  <span className="material-symbols-outlined">database</span>
+              <button
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Database Status"
+                title="Database Status"
+              >
+                  <span className="material-symbols-outlined" aria-hidden="true">database</span>
               </button>
-              <button className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
-                  <span className="material-symbols-outlined">cloud_done</span>
+              <button
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Sync Status"
+                title="Sync Status"
+              >
+                  <span className="material-symbols-outlined" aria-hidden="true">cloud_done</span>
               </button>
-              <Link href="/settings" className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95">
-                  <span className="material-symbols-outlined">settings</span>
+              <Link
+                href="/settings"
+                className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Settings"
+                title="Settings"
+              >
+                  <span className="material-symbols-outlined" aria-hidden="true">settings</span>
               </Link>
             </div>
 
