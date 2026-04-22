@@ -48,11 +48,10 @@ describe('Settings', () => {
     await waitFor(() => {
       const stored = localStorage.getItem('git-updater-config');
 
-      if (stored) {
-        expect(stored).toContain('custom/release.log');
-      expect(stored).toContain('docs/CHANGELOG.md');
-      expect(stored).toContain('http://localhost:3000');
-      }
+      expect(stored).not.toBeNull();
+      expect(stored!).toContain('custom/release.log');
+      expect(stored!).toContain('docs/CHANGELOG.md');
+      expect(stored!).toContain('http://localhost:3000');
     });
   });
 });
