@@ -1479,3 +1479,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+// Triggering new build to clear potential cache issues
