@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { getSystemInfo, type SystemInfo } from '@/lib/sys';
+import { useState, useEffect, useRef } from 'react';
+
 import {
   type DashboardData,
   type SystemInfo,
@@ -15,6 +15,8 @@ import {
   getRemoteStatus,
   listenPullProgress,
   loadConfig,
+  startService,
+  stopService,
   runSmartPull,
 } from '@/lib/git';
 
@@ -116,6 +118,33 @@ export default function Dashboard() {
     };
   }, []);
 
+
+  const handleStartService = async () => {
+    setLoading(true);
+    setMessage('Starting service...');
+    try {
+      const result = await startService();
+      setMessage(`Service started: ${result}`);
+    } catch (err: any) {
+      setMessage(`Failed to start service: ${err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStopService = async () => {
+    setLoading(true);
+    setMessage('Stopping service...');
+    try {
+      const result = await stopService();
+      setMessage(`Service stopped: ${result}`);
+    } catch (err: any) {
+      setMessage(`Failed to stop service: ${err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -165,6 +194,7 @@ export default function Dashboard() {
 
     setLoading(true);
     setMessage('');
+    setProgress({ stage: 'pulling', percent: 5, label: '开始更新...' });
 
     try {
       const result = await runSmartPull(config);
@@ -211,7 +241,7 @@ export default function Dashboard() {
   const localVer = localDetails?.version ?? status?.localVersion ?? '-';
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? '-';
   const isUpToDate = !status?.hasUpdates;
-  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
+  const uptime = sysInfo ? (sysInfo as any).uptime ? formatUptime((sysInfo as any).uptime) : sysInfo.uptimeDays + '天' : null;
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
@@ -279,6 +309,23 @@ export default function Dashboard() {
                 title="Database Status"
               >
                   <span className="material-symbols-outlined" aria-hidden="true">database</span>
+              </button>
+            </div>
+            <div className="flex space-x-3">
+
+              <button onClick={handleStartService} disabled={loading} className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-[0_4px_14px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center space-x-1">
+                <span className="material-symbols-outlined text-sm">play_arrow</span>
+                <span>Start Service</span>
+              </button>
+              <button onClick={handleStopService} disabled={loading} className="px-5 py-2 bg-rose-600 text-white rounded-xl font-semibold text-sm hover:bg-rose-700 transition-colors shadow-[0_4px_14px_rgba(225,29,72,0.3)] disabled:opacity-50 flex items-center space-x-1">
+                <span className="material-symbols-outlined text-sm">stop</span>
+                <span>Stop Service</span>
+              </button>
+              <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
+                Stop Service
+              </button>
+              <button onClick={handlePull} disabled={loading} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
+                Start Service
               </button>
               <button
                 className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -431,7 +478,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, sysInfo.cpuUsage)) : 0}%` }}></div>
+                  <div className="bg-rose-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo ? Math.min(100, Math.max(0, (sysInfo as any).cpuUsage)) : 0}%` }}></div>
                 </div>
               </div>
 
@@ -448,38 +495,29 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
-                  {sysInfo ? formatBytes(sysInfo.memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ''}</span>
+                  {sysInfo ? formatBytes((sysInfo as any).memoryUsed).value : '-'} <span className="text-sm text-on-surface-variant font-semibold">{sysInfo ? formatBytes((sysInfo as any).memoryUsed).unit : ''}</span>
                 </h4>
-                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}` : '-'} 总计</p>
+                <p className="text-xs text-on-surface-variant mt-1">/ {sysInfo ? `${formatBytes((sysInfo as any).memoryTotal).value} ${formatBytes((sysInfo as any).memoryTotal).unit}` : '-'} 总计</p>
                 <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%` }}></div>
+                  <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${sysInfo && (sysInfo as any).memoryTotal > 0 ? ((sysInfo as any).memoryUsed / (sysInfo as any).memoryTotal) * 100 : 0}%` }}></div>
                 </div>
               </div>
 
-                {/* Metric 5 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
-                      <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
-                    </div>
-                    <p className="text-xs font-semibold text-on-surface-variant">{sysInfo?.diskTotalTb ?? 10} TB 总计</p>
+              {/* Metric 5 */}
+              <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="material-symbols-outlined text-cyan-500 text-sm">hard_drive</span>
+                    <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">磁盘空间</p>
                   </div>
-                  <div className="flex items-end justify-between mb-2">
-                    <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo?.diskFreeTb ?? 4.2} <span className="text-base text-on-surface-variant font-semibold">TB 可用</span></h4>
-                    <span className="text-sm font-semibold text-on-surface">{sysInfo?.diskUsagePercentage ?? 58}% 已用</span>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
-                    <div className="bg-cyan-500 h-2 rounded-full" style={{ width: `${sysInfo?.diskUsagePercentage ?? 58}%` }}></div>
-                  </div>
-                  <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : '-'} 总计</p>
+                  <p className="text-xs font-semibold text-on-surface-variant">{sysInfo ? `${formatBytes((sysInfo as any).diskTotal).value} ${formatBytes((sysInfo as any).diskTotal).unit}` : '-'} 总计</p>
                 </div>
                 <div className="flex items-end justify-between mb-2">
-                  <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatBytes(sysInfo.diskAvailable).value : '-'} <span className="text-base text-on-surface-variant font-semibold">{sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ''} 可用</span></h4>
-                  <span className="text-sm font-semibold text-on-surface">{sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100).toFixed(0) : 0}% 已用</span>
+                  <h4 className="text-3xl font-headline font-bold text-on-surface">{sysInfo ? formatBytes((sysInfo as any).diskAvailable).value : '-'} <span className="text-base text-on-surface-variant font-semibold">{sysInfo ? formatBytes((sysInfo as any).diskAvailable).unit : ''} 可用</span></h4>
+                  <span className="text-sm font-semibold text-on-surface">{sysInfo && (sysInfo as any).diskTotal > 0 ? (((sysInfo as any).diskTotal - (sysInfo as any).diskAvailable) / (sysInfo as any).diskTotal * 100).toFixed(0) : 0}% 已用</span>
                 </div>
                 <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
-                  <div className="bg-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal * 100) : 0}%` }}></div>
+                  <div className="bg-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: `${sysInfo && (sysInfo as any).diskTotal > 0 ? (((sysInfo as any).diskTotal - (sysInfo as any).diskAvailable) / (sysInfo as any).diskTotal * 100) : 0}%` }}></div>
                 </div>
               </div>
             </div>
@@ -509,8 +547,6 @@ export default function Dashboard() {
                 <p className="mt-4 text-white">user@lumina-os:~$ <span className="animate-pulse">_</span></p>
               </div>
             </div>
-          </div>
-        </div>
       </main>
     </div>
   );
