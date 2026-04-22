@@ -412,36 +412,6 @@ fn find_remote_commit<'repo>(
         .map_err(|e| format!("读取远端提交失败: {e}"))
 }
 
-fn count_commits_between(repo: &Repository, from: Oid, to: Oid) -> Result<usize, String> {
-    // Count commits from `from` to `to` (excluding `from`, including `to`)
-    let mut count = 0;
-
-    // Verify both commits exist
-    let _ = repo
-        .find_commit(from)
-        .map_err(|e| format!("无法找到起始提交: {e}"))?;
-    let _ = repo
-        .find_commit(to)
-        .map_err(|e| format!("无法找到目标提交: {e}"))?;
-
-    let mut revwalk = repo.revwalk().map_err(|e| format!("无法创建遍历器: {e}"))?;
-    revwalk.push(to).map_err(|e| e.to_string())?;
-    revwalk.hide(from).map_err(|e| e.to_string())?;
-
-    for oid in revwalk {
-        if oid.is_ok() {
-            count += 1;
-        }
-    }
-
-    log::debug!(
-        "count_commits_between: from={}, to={}, count={}",
-        from,
-        to,
-        count
-    );
-    Ok(count)
-}
 
 fn backup_repo_dir(source_path: &str) -> Result<String, String> {
     let timestamp = Local::now().format("%Y-%m-%dT%H-%M-%S");
@@ -688,63 +658,16 @@ fn git_status(path: String) -> Result<serde_json::Value, String> {
         remote_oid
     );
 
-    // 使用 merge_analysis 计算 ahead/behind
+    // 使用 graph_ahead_behind 计算 ahead/behind
     let (ahead, behind) = if local_oid != Oid::zero() && remote_oid != Oid::zero() {
-        // 尝试使用 merge_analysis 进行更可靠的分析
         match repo.find_reference(&format!("refs/remotes/origin/{}", branch)) {
             Ok(remote_ref) => {
                 if let Some(remote_target) = remote_ref.target() {
-                    match repo.find_annotated_commit(remote_target) {
-                        Ok(annotated) => {
-                            match repo.merge_analysis(&[&annotated]) {
-                                Ok((analysis, _)) => {
-                                    if analysis.is_up_to_date() {
-                                        // 本地已包含远端内容，本地没有新的本地提交
-                                        log::info!("git_status: merge_analysis 指示已更新");
-                                        (0, 0)
-                                    } else if analysis.is_fast_forward() {
-                                        // 可以 fast-forward，本地落后于远端
-                                        let behind =
-                                            count_commits_between(&repo, local_oid, remote_target)
-                                                .unwrap_or_else(|_| {
-                                                    log::warn!(
-                                                "无法计算 behind 数量，使用 graph_ahead_behind"
-                                            );
-                                                    repo.graph_ahead_behind(
-                                                        local_oid,
-                                                        remote_target,
-                                                    )
-                                                    .map(|(_, b)| b)
-                                                    .unwrap_or(0)
-                                                });
-                                        log::info!(
-                                            "git_status: merge_analysis 指示可 fast-forward, behind={}",
-                                            behind
-                                        );
-                                        (0, behind)
-                                    } else {
-                                        // 需要 merge，使用 graph_ahead_behind
-                                        log::info!("git_status: merge_analysis 指示需要 merge");
-                                        repo.graph_ahead_behind(local_oid, remote_target)
-                                            .unwrap_or((0, 0))
-                                    }
-                                }
-                                Err(e) => {
-                                    log::warn!(
-                                        "merge_analysis 失败，回退到 graph_ahead_behind: {}",
-                                        e
-                                    );
-                                    repo.graph_ahead_behind(local_oid, remote_target)
-                                        .unwrap_or((0, 0))
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!("find_annotated_commit 失败: {}", e);
-                            repo.graph_ahead_behind(local_oid, remote_target)
-                                .unwrap_or((0, 0))
-                        }
-                    }
+                    repo.graph_ahead_behind(local_oid, remote_target)
+                        .unwrap_or_else(|e| {
+                            log::warn!("计算 ahead/behind 失败: {}", e);
+                            (0, 0)
+                        })
                 } else {
                     log::warn!("git_status: remote_oid 为空");
                     (0, 0)
