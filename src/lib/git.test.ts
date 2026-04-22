@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cloneRepo } from './git';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { pullRepo } from './git';
 import { invoke } from '@tauri-apps/api/core';
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -7,42 +7,46 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 describe('git', () => {
-  describe('cloneRepo', () => {
+  describe('pullRepo', () => {
     beforeEach(() => {
       vi.clearAllMocks();
     });
 
-    it('should call invoke with correct arguments', async () => {
-      const url = 'https://github.com/test/test.git';
-      const path = '/local/path';
-      const branch = 'main';
+    it('returns success when pull is successful', async () => {
+      vi.mocked(invoke).mockResolvedValueOnce('Pull successful');
 
-      vi.mocked(invoke).mockResolvedValueOnce('Success');
+      const result = await pullRepo('/path/to/repo');
 
-      await cloneRepo(url, path, branch);
-
-      expect(invoke).toHaveBeenCalledWith('git_clone', { url, path, branch });
+      expect(invoke).toHaveBeenCalledWith('git_pull', { path: '/path/to/repo', force: false });
+      expect(result).toEqual({ success: true, message: 'Pull successful' });
     });
 
-    it('should use default branch when not provided', async () => {
-      const url = 'https://github.com/test/test.git';
-      const path = '/local/path';
+    it('returns success when pull is successful but invoke returns empty string', async () => {
+      vi.mocked(invoke).mockResolvedValueOnce('');
 
-      vi.mocked(invoke).mockResolvedValueOnce('Success');
+      const result = await pullRepo('/path/to/repo', true);
 
-      await cloneRepo(url, path);
-
-      expect(invoke).toHaveBeenCalledWith('git_clone', { url, path, branch: 'main' });
+      expect(invoke).toHaveBeenCalledWith('git_pull', { path: '/path/to/repo', force: true });
+      expect(result).toEqual({ success: true, message: 'Pull successful' });
     });
 
-    it('should throw when invoke fails', async () => {
-      const url = 'https://github.com/test/test.git';
-      const path = '/local/path';
-
-      const error = new Error('Clone failed');
+    it('returns failure when pull fails with an Error object', async () => {
+      const error = new Error('Merge conflict');
       vi.mocked(invoke).mockRejectedValueOnce(error);
 
-      await expect(cloneRepo(url, path)).rejects.toThrow('Clone failed');
+      const result = await pullRepo('/path/to/repo');
+
+      expect(invoke).toHaveBeenCalledWith('git_pull', { path: '/path/to/repo', force: false });
+      expect(result).toEqual({ success: false, message: 'Merge conflict' });
+    });
+
+    it('returns failure when pull fails with a string error', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('Authentication failed');
+
+      const result = await pullRepo('/path/to/repo');
+
+      expect(invoke).toHaveBeenCalledWith('git_pull', { path: '/path/to/repo', force: false });
+      expect(result).toEqual({ success: false, message: 'Authentication failed' });
     });
   });
 });

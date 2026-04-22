@@ -162,7 +162,7 @@ export async function getSystemInfo(url?: string): Promise<SystemInfo> {
     // If targetUrl does not have /api/sysinfo, append it, or we expect full url?
     // Let's assume the user enters the base url, so we append /api/sysinfo,
     // or if they enter full url we just use it. Let's assume it's base url.
-    const res = await fetch(`${targetUrl.replace(/\/$/, '')}/api/sysinfo`);
+    const res = await fetch(`${targetUrl.replace(/\\$/, '')}/api/sysinfo`);
     if (!res.ok) {
       throw new Error();
     }
