@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 
 import Dashboard from './page';
 
@@ -52,8 +52,8 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('本地版本')).toBeInTheDocument();
     expect(screen.getByText('远程版本')).toBeInTheDocument();
-    // expect(screen.getByText('v1')).toBeInTheDocument();
-    // expect(screen.getByText('v2')).toBeInTheDocument();
+
+
 
     expect(screen.getByText('系统正常运行时间')).toBeInTheDocument();
 
@@ -78,6 +78,5 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('请先配置仓库')).toBeInTheDocument();
   });
-
 
 });
