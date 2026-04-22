@@ -15,6 +15,8 @@ import {
   getRemoteStatus,
   listenPullProgress,
   loadConfig,
+  startService,
+  stopService,
   runSmartPull,
 } from '@/lib/git';
 
@@ -116,6 +118,33 @@ export default function Dashboard() {
     };
   }, []);
 
+
+  const handleStartService = async () => {
+    setLoading(true);
+    setMessage('Starting service...');
+    try {
+      const result = await startService();
+      setMessage(`Service started: ${result}`);
+    } catch (err: any) {
+      setMessage(`Failed to start service: ${err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStopService = async () => {
+    setLoading(true);
+    setMessage('Stopping service...');
+    try {
+      const result = await stopService();
+      setMessage(`Service stopped: ${result}`);
+    } catch (err: any) {
+      setMessage(`Failed to stop service: ${err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -165,6 +194,7 @@ export default function Dashboard() {
 
     setLoading(true);
     setMessage('');
+    setProgress({ stage: 'pulling', percent: 5, label: '开始更新...' });
 
     try {
       const result = await runSmartPull(config);
@@ -279,6 +309,23 @@ export default function Dashboard() {
                 title="Database Status"
               >
                   <span className="material-symbols-outlined" aria-hidden="true">database</span>
+              </button>
+            </div>
+            <div className="flex space-x-3">
+
+              <button onClick={handleStartService} disabled={loading} className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-[0_4px_14px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center space-x-1">
+                <span className="material-symbols-outlined text-sm">play_arrow</span>
+                <span>Start Service</span>
+              </button>
+              <button onClick={handleStopService} disabled={loading} className="px-5 py-2 bg-rose-600 text-white rounded-xl font-semibold text-sm hover:bg-rose-700 transition-colors shadow-[0_4px_14px_rgba(225,29,72,0.3)] disabled:opacity-50 flex items-center space-x-1">
+                <span className="material-symbols-outlined text-sm">stop</span>
+                <span>Stop Service</span>
+              </button>
+              <button disabled={loading} className="px-5 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:bg-surface-variant transition-colors disabled:opacity-50">
+                Stop Service
+              </button>
+              <button onClick={handlePull} disabled={loading} className="px-5 py-2 bg-primary text-on-primary rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_4px_14px_rgba(0,67,148,0.3)] disabled:opacity-50">
+                Start Service
               </button>
               <button
                 className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
