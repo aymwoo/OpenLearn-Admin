@@ -26,3 +26,4 @@ tauri-plugin-shell = "2"
 tauri-plugin-log = "2"
 chrono = "0.4"
 git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl"] }
+sysinfo = "0.36.1"
