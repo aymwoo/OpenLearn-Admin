@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-22 - Completed quick task 260422-hnj: 实现强制覆盖：备份冲突文件后用远端强制覆盖本地
+2026-04-22 - Completed quick task 260422-hvh: 修复强制覆盖时的UnbornBranch错误
 
 ---
 
@@ -15,6 +15,7 @@
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260422-hvh-unbornbranch | 修复强制覆盖时的UnbornBranch错误 | 2026-04-22 | 28ebae3 | [260422-hvh-unbornbranch](./quick/260422-hvh-unbornbranch/) |
 | 260422-hnj-force-override | 实现强制覆盖：备份冲突文件后用远端强制覆盖本地 | 2026-04-22 | 8e9b33a | [260422-hnj-force-override](./quick/260422-hnj-force-override/) |
 | 260422-hbc-release-log | 修复仓库缺少 release.log 文件错误处理逻辑 | 2026-04-22 | 37d2eb0 | [260422-hbc-release-log](./quick/260422-hbc-release-log/) |
 | 260422-unborn-branch-fix | 修复读取当前分支失败 (UnbornBranch) | 2026-04-22 | 4192794 | [260422-unborn-branch-fix](./quick/260422-unborn-branch-fix/) |
