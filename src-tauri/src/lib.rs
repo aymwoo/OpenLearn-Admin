@@ -463,7 +463,40 @@ fn fast_forward(repo: &Repository, branch: &str, force: bool) -> Result<(), Stri
     }
 
     if !analysis.is_fast_forward() {
-        return Err("当前仅支持 fast-forward 更新".to_string());
+        if !force {
+            return Err("当前仅支持 fast-forward 更新".to_string());
+        }
+        
+        log::info!("强制覆盖模式：非 fast-forward 更新，将备份并强制覆盖");
+        
+        let repo_path = repo.path().parent().map(|p| p.to_path_buf())
+            .ok_or_else(|| "无法获取仓库路径".to_string())?;
+        let backup_path = format!(
+            "{}.conflict-backup-{}",
+            repo_path.display(),
+            Local::now().format("%Y-%m-%dT%H-%M-%S")
+        );
+        
+        if let Err(e) = copy_dir_recursive(&repo_path, Path::new(&backup_path)) {
+            log::warn!("备份冲突文件失败: {}，继续强制覆盖", e);
+        } else {
+            log::info!("已备份到 {}", backup_path);
+        }
+        
+        let target_oid = annotated.id();
+        
+        let reference_name = format!("refs/heads/{branch}");
+        if let Ok(mut reference) = repo.find_reference(&reference_name) {
+            reference.set_target(target_oid, "force override").map_err(|e| format!("更新本地分支失败: {e}"))?;
+        }
+        
+        repo.set_head(&reference_name).map_err(|e| format!("切换分支头失败: {e}"))?;
+        
+        let mut builder = CheckoutBuilder::default();
+        builder.force().remove_untracked(true);
+        repo.checkout_head(Some(&mut builder)).map_err(|e| format!("强制覆盖工作区失败: {e}"))?;
+        
+        return Ok(());
     }
 
     let reference_name = format!("refs/heads/{branch}");
