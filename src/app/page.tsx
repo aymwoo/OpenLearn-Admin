@@ -41,6 +41,11 @@ export default function Dashboard() {
   const [serviceRunning, setServiceRunning] = useState(false);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const configRef = useRef<GitConfig | null>(null);
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   const applyDashboardData = (data: DashboardData) => {
     setStatus(data.status);
@@ -121,6 +126,33 @@ export default function Dashboard() {
     listenPullProgress((nextProgress) => {
       if (mounted) {
         setProgress(nextProgress);
+
+        if (nextProgress.stage === "done" && nextProgress.result) {
+          const res = nextProgress.result;
+          setMessage(res.message);
+          setLocalDetails(res.local);
+          setRemoteDetails(res.remote);
+          setStatus({
+            currentBranch: configRef.current?.branch || "main",
+            hasUpdates: res.local.version !== res.remote.version,
+            localVersion: res.local.version,
+            remoteVersion: res.remote.version,
+          });
+          setLoading(false);
+          if (configRef.current) {
+            getRemoteStatus(
+              configRef.current.localPath,
+              configRef.current.branch
+            )
+              .then((rs) => {
+                if (mounted) setRemoteStatus(rs);
+              })
+              .catch(() => {});
+          }
+        } else if (nextProgress.stage === "error") {
+          setMessage(nextProgress.label);
+          setLoading(false);
+        }
       }
     })
       .then((dispose) => {
@@ -211,23 +243,8 @@ export default function Dashboard() {
     setProgress({ stage: "pulling", percent: 5, label: "开始更新..." });
 
     try {
-      const result = await runSmartPull(config);
-      setMessage(result.message);
-      setLocalDetails(result.local);
-      setRemoteDetails(result.remote);
-      setProgress({ stage: "done", percent: 100, label: result.message });
-
-      setStatus({
-        currentBranch: config.branch,
-        hasUpdates: result.local.version !== result.remote.version,
-        localVersion: result.local.version,
-        remoteVersion: result.remote.version,
-      });
-
-      // 更新后异步刷新 Git 状态
-      getRemoteStatus(config.localPath, config.branch)
-        .then((rs) => setRemoteStatus(rs))
-        .catch(() => {});
+      await runSmartPull(config);
+      // 结果现在通过 listenPullProgress 异步处理
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : String(error);
@@ -237,7 +254,6 @@ export default function Dashboard() {
         stage: "error",
         label: nextMessage,
       }));
-    } finally {
       setLoading(false);
     }
   };

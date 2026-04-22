@@ -137,6 +137,7 @@ struct FetchProgress {
     stage: String,
     percent: u8,
     label: String,
+    result: Option<PullResult>,
 }
 
 fn default_branch(branch: &str) -> &str {
@@ -739,6 +740,7 @@ fn emit_progress(window: &Window, stage: &str, percent: u8, label: &str) -> Resu
                 stage: stage.to_string(),
                 percent,
                 label: label.to_string(),
+                result: None,
             },
         )
         .map_err(|e| format!("发送进度失败: {e}"))
@@ -1120,7 +1122,37 @@ fn get_dashboard_data(config: GitConfig) -> Result<DashboardData, String> {
 }
 
 #[command]
-fn run_smart_pull(window: Window, config: GitConfig) -> Result<PullResult, String> {
+fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
+    thread::spawn(move || {
+        match run_smart_pull_logic(&window, config) {
+            Ok(res) => {
+                let _ = window.emit(
+                    PROGRESS_EVENT,
+                    FetchProgress {
+                        stage: "done".to_string(),
+                        percent: 100,
+                        label: "更新成功".to_string(),
+                        result: Some(res),
+                    },
+                );
+            }
+            Err(e) => {
+                let _ = window.emit(
+                    PROGRESS_EVENT,
+                    FetchProgress {
+                        stage: "error".to_string(),
+                        percent: 0,
+                        label: e.clone(),
+                        result: None,
+                    },
+                );
+            }
+        }
+    });
+    Ok(())
+}
+
+fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
 
     let target_path = Path::new(&config.local_path);

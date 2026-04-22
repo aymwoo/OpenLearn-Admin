@@ -54,6 +54,7 @@ export interface FetchProgress {
     | 'error';
   percent: number;
   label: string;
+  result?: PullResult;
 }
 
 export interface SystemInfo {
@@ -97,8 +98,8 @@ export async function getDashboardData(config: GitConfig): Promise<DashboardData
   return invoke<DashboardData>('get_dashboard_data', { config });
 }
 
-export async function runSmartPull(config: GitConfig): Promise<PullResult> {
-  return invoke<PullResult>('run_smart_pull', { config });
+export async function runSmartPull(config: GitConfig): Promise<void> {
+  return invoke<void>('run_smart_pull', { config });
 }
 
 export async function listenPullProgress(handler: (progress: FetchProgress) => void): Promise<UnlistenFn> {
