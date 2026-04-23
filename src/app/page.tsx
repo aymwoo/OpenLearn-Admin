@@ -6,11 +6,13 @@ import { useState, useEffect, useRef } from "react";
 import { getSystemInfo, type SystemInfo } from "@/lib/sys";
 import {
   type DashboardData,
+  type DbConnectionStatus,
   type FetchProgress,
   type GitConfig,
   type RepoSyncStatus,
   type VersionDetails,
   getDashboardData,
+  getDbConnectionStatus,
   getRemoteStatus,
   getWebServiceInfo,
   listenPullProgress,
@@ -48,6 +50,7 @@ export default function Dashboard() {
     null
   );
   const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
+  const [dbStatus, setDbStatus] = useState<DbConnectionStatus | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
 
@@ -260,6 +263,14 @@ export default function Dashboard() {
     };
   }, [config]);
 
+  useEffect(() => {
+    if (!config?.localPath) return;
+    
+    getDbConnectionStatus(config.localPath)
+      .then(setDbStatus)
+      .catch(() => {});
+  }, [config]);
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return { value: 0, unit: "B" };
     const k = 1024;
@@ -454,12 +465,17 @@ export default function Dashboard() {
               <button
                 className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Database Status"
-                title="Database Status"
+                title={dbStatus ? `数据库: ${dbStatus.server}/${dbStatus.database}` : "数据库状态"}
               >
-                <span className="material-symbols-outlined" aria-hidden="true">
-                  database
+                <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`} aria-hidden="true">
+                  {dbStatus?.connected ? 'database' : 'database_error'}
                 </span>
               </button>
+              {dbStatus && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {dbStatus.server}/{dbStatus.database}
+                </span>
+              )}
             </div>
             <div className="flex space-x-3">
               <button

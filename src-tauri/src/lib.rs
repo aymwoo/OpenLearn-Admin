@@ -158,6 +158,16 @@ fn update_progress(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DbConnectionStatus {
+    connected: bool,
+    server: String,
+    database: String,
+    provider: String,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct WebServiceInfo {
     student_count: i32,
     lesson_count: i32,
@@ -1459,6 +1469,87 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
     Ok(info)
 }
 
+#[command]
+async fn get_database_connection_status(local_path: String) -> Result<DbConnectionStatus, String> {
+    use std::fs;
+    
+    let config_paths = [
+        "OpenLearn.Web/Web.config",
+        "OpenLearn.Web/appsettings.json",
+        "web.config",
+        "appsettings.json",
+    ];
+    
+    let base_path = std::path::Path::new(&local_path);
+    let mut content: Option<String> = None;
+    let mut found_file: String = String::new();
+    
+    for config_path in &config_paths {
+        let full_path = base_path.join(config_path);
+        if full_path.exists() {
+            if let Ok(c) = fs::read_to_string(&full_path) {
+                content = Some(c);
+                found_file = config_path.to_string();
+                break;
+            }
+        }
+    }
+    
+    let content = content.ok_or_else(|| "未找到数据库配置文件 (web.config 或 appsettings.json)".to_string())?;
+    
+    let (server, database) = if found_file.ends_with(".json") {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+            let conn_str = json.get("ConnectionStrings")
+                .and_then(|cs| cs.get("OpenLearn"))
+                .or_else(|| json.get("ConnectionStrings").and_then(|cs| cs.get("Default")))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            parse_connection_string(conn_str)
+        } else {
+            return Err("无法解析 JSON 文件".to_string());
+        }
+    } else {
+        let conn_str = content.lines()
+            .find(|l| l.contains("connectionString="))
+            .map(|l| {
+                l.split("connectionString=\"")
+                    .nth(1)
+                    .unwrap_or("")
+                    .split('"')
+                    .next()
+                    .unwrap_or("")
+            })
+            .unwrap_or("");
+        parse_connection_string(conn_str)
+    };
+    
+    Ok(DbConnectionStatus {
+        connected: !server.is_empty() && server != "未知",
+        server,
+        database,
+        provider: "SqlServer".to_string(),
+        error: None,
+    })
+}
+
+fn parse_connection_string(conn_str: &str) -> (String, String) {
+    let mut server = String::new();
+    let mut database = String::new();
+    
+    for part in conn_str.split(';') {
+        let part = part.trim();
+        if part.to_lowercase().starts_with("server=") || part.to_lowercase().starts_with("data source=") {
+            server = part.split('=').nth(1).unwrap_or("").trim().to_string();
+        } else if part.to_lowercase().starts_with("database=") || part.to_lowercase().starts_with("initial catalog=") {
+            database = part.split('=').nth(1).unwrap_or("").trim().to_string();
+        }
+    }
+    
+    if server.is_empty() { server = "未知".to_string(); }
+    if database.is_empty() { database = "未知".to_string(); }
+    (server, database)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     setup_graphics_workarounds();
@@ -1478,6 +1569,7 @@ pub fn run() {
             run_smart_pull,
             get_system_info,
             get_web_service_info,
+            get_database_connection_status,
             start_service,
             stop_service,
         ])

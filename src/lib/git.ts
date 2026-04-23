@@ -225,3 +225,25 @@ export async function getWebServiceInfo(url: string): Promise<WebServiceInfo> {
     throw new Error(String(error) || '无法连接到 Web 服务，请检查 URL 是否正确。');
   }
 }
+
+export interface DbConnectionStatus {
+  connected: boolean;
+  server: string;
+  database: string;
+  provider: string;
+  error?: string;
+}
+
+export async function getDbConnectionStatus(localPath: string): Promise<DbConnectionStatus> {
+  try {
+    return await invoke<DbConnectionStatus>('get_database_connection_status', { localPath });
+  } catch (error) {
+    return {
+      connected: false,
+      server: '未知',
+      database: '未知',
+      provider: 'SqlServer',
+      error: String(error),
+    };
+  }
+}
