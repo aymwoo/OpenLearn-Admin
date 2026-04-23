@@ -182,15 +182,23 @@ export async function listenServiceLog(handler: (log: string) => void): Promise<
 }
 
 
+
+export interface WebServiceInfo {
+  studentCount: number;
+  lessonCount: number;
+  workCount: number;
+  systemUptime: string;
+  processStartTime: string;
+  aspNetMemory: string;
+  aspNetThreadCount: number;
+}
+
 /**
  * 从已经运行的web服务页面获取系统信息
  */
 export async function getSystemInfo(url?: string): Promise<SystemInfo> {
   try {
     const targetUrl = url || 'http://127.0.0.1:8000';
-    // If targetUrl does not have /api/sysinfo, append it, or we expect full url?
-    // Let's assume the user enters the base url, so we append /api/sysinfo,
-    // or if they enter full url we just use it. Let's assume it's base url.
     const res = await fetch(`${targetUrl.replace(/\/$/, '')}/api/sysinfo`);
     if (!res.ok) {
       throw new Error();
@@ -198,5 +206,21 @@ export async function getSystemInfo(url?: string): Promise<SystemInfo> {
     return await res.json();
   } catch (error) {
     throw new Error('读取不到信息,请检查web服务是否启动');
+  }
+}
+
+/**
+ * 从web服务获取详细的业务数据和运行时信息
+ */
+export async function getWebServiceInfo(url: string): Promise<WebServiceInfo> {
+  try {
+    const targetUrl = url.replace(/\/$/, '');
+    const res = await fetch(`${targetUrl}/sysinfo.aspx`);
+    if (!res.ok) {
+      throw new Error();
+    }
+    return await res.json();
+  } catch (error) {
+    throw new Error('无法连接到 Web 服务，请检查 URL 是否正确。');
   }
 }
