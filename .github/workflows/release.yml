@@ -97,8 +97,10 @@ jobs:
           $pkgName = "OpenLearn-Admin-v$version-Windows-Full"
           New-Item -ItemType Directory -Path $pkgName
           
-          # 复制主程序 (从编译目录获取)
-          Copy-Item "src-tauri/target/release/Git Update Manager.exe" -Destination "$pkgName/OpenLearn-Admin.exe"
+          # 自动获取产品名称并复制主程序
+          $config = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $binName = $config.productName
+          Copy-Item "src-tauri/target/release/$binName.exe" -Destination "$pkgName/OpenLearn-Admin.exe"
           
           # 复制环境资产
           Copy-Item -Recurse "assets-windows" -Destination "$pkgName/"
