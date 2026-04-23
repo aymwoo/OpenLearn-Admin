@@ -184,28 +184,31 @@ export async function listenServiceLog(handler: (log: string) => void): Promise<
 
 
 export interface WebServiceInfo {
-  studentCount: number;
-  lessonCount: number;
-  workCount: number;
-  systemUptime: string;
-  processStartTime: string;
-  aspNetMemory: string;
-  aspNetThreadCount: number;
+  courses: number;
+  students: number;
+  works: number;
+  uptime: string;
+  startTime: string;
+  memoryMB: string;
+  dbSize: string;
 }
 
 /**
  * 从已经运行的web服务页面获取系统信息
  */
-export async function getSystemInfo(url?: string): Promise<SystemInfo> {
+export async function getWebServiceSystemInfo(url?: string): Promise<SystemInfo> {
+  if (!url) {
+    throw new Error('未提供 Web 服务 URL');
+  }
+  const targetUrl = `${url.replace(/\/$/, '')}/api/sysinfo`;
   try {
-    const targetUrl = url || 'http://127.0.0.1:8000';
-    const res = await fetch(`${targetUrl.replace(/\/$/, '')}/api/sysinfo`);
+    const res = await fetch(targetUrl);
     if (!res.ok) {
-      throw new Error();
+      throw new Error(`HTTP 错误: ${res.status}`);
     }
     return await res.json();
   } catch (error) {
-    throw new Error('读取不到信息,请检查web服务是否启动');
+    throw new Error(`无法从 ${targetUrl} 读取信息: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

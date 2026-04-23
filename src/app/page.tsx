@@ -225,9 +225,9 @@ export default function Dashboard() {
     let interval: any;
 
     const fetchWSInfo = async () => {
-      if (!configRef.current?.webServiceUrl) return;
+      if (!config?.webServiceUrl) return;
       try {
-        const info = await getWebServiceInfo(configRef.current.webServiceUrl);
+        const info = await getWebServiceInfo(config.webServiceUrl);
         if (mounted) {
           setWebServiceInfo(info);
         }
@@ -236,7 +236,7 @@ export default function Dashboard() {
       }
     };
 
-    if (config) {
+    if (config?.webServiceUrl) {
       fetchWSInfo();
       interval = setInterval(fetchWSInfo, 5000);
     }
@@ -245,7 +245,7 @@ export default function Dashboard() {
       mounted = false;
       if (interval) clearInterval(interval);
     };
-  }, [config]);
+  }, [config?.webServiceUrl]);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return { value: 0, unit: "B" };
@@ -342,10 +342,10 @@ export default function Dashboard() {
         <div className="flex items-center px-2 py-4">
           <div>
             <h1 className="text-xl font-black text-[#004394] dark:text-blue-500 font-headline tracking-tight">
-              OpenLearnsite
+              OpenLearnsite Manager
             </h1>
             <p className="text-xs text-on-surface-variant font-label">
-              v4.2.1 Stable
+              管理助手
             </p>
           </div>
         </div>
@@ -361,8 +361,9 @@ export default function Dashboard() {
             >
               dashboard
             </span>
-            <span>Dashboard</span>
+            <span>仪表盘</span>
           </Link>
+          {/* 
           <Link
             href="#"
             className="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-headline text-sm font-semibold active:translate-x-1"
@@ -384,9 +385,10 @@ export default function Dashboard() {
             <span className="material-symbols-outlined">terminal</span>
             <span>Terminal</span>
           </Link>
+          */}
         </div>
 
-        <div className="space-y-4 pt-4 border-t border-surface-container-high before:content-[''] before:block before:w-full before:h-px before:bg-surface-container-high before:mb-4">
+        <div className="space-y-4 pt-4 border-t border-surface-container-high before:content-[''] before:block before:w-full before:h-px before:bg-surface-container-high before:mb-4 hidden">
           <button
             onClick={handlePull}
             disabled={loading}
@@ -437,7 +439,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 hidden">
               <button
                 className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Database Status"
@@ -452,7 +454,7 @@ export default function Dashboard() {
               <button
                 onClick={handleStartService}
                 disabled={loading}
-                className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-[0_4px_14px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center space-x-1"
+                className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-[0_4px_14px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center space-x-1 hidden"
               >
                 <span className="material-symbols-outlined text-sm">
                   play_arrow
@@ -462,14 +464,14 @@ export default function Dashboard() {
               <button
                 onClick={handleStopService}
                 disabled={loading}
-                className="px-5 py-2 bg-rose-600 text-white rounded-xl font-semibold text-sm hover:bg-rose-700 transition-colors shadow-[0_4px_14px_rgba(225,29,72,0.3)] disabled:opacity-50 flex items-center space-x-1"
+                className="px-5 py-2 bg-rose-600 text-white rounded-xl font-semibold text-sm hover:bg-rose-700 transition-colors shadow-[0_4px_14px_rgba(225,29,72,0.3)] disabled:opacity-50 flex items-center space-x-1 hidden"
               >
                 <span className="material-symbols-outlined text-sm">stop</span>
                 <span>Stop Service</span>
               </button>
 
               <button
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hidden"
                 aria-label="Sync Status"
                 title="Sync Status"
               >
@@ -479,17 +481,27 @@ export default function Dashboard() {
               </button>
               <Link
                 href="/settings"
-                className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="flex items-center justify-center p-2.5 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Settings"
                 title="Settings"
               >
-                <span className="material-symbols-outlined" aria-hidden="true">
+                <span className="material-symbols-outlined text-2xl" aria-hidden="true">
                   settings
+                </span>
+              </Link>
+              <Link
+                href="/help"
+                className="flex items-center justify-center p-2.5 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Help"
+                title="Help"
+              >
+                <span className="material-symbols-outlined text-2xl" aria-hidden="true">
+                  help
                 </span>
               </Link>
             </div>
 
-            <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20 flex items-center justify-center hidden">
               <span className="material-symbols-outlined text-on-surface-variant">
                 person
               </span>
@@ -661,79 +673,78 @@ export default function Dashboard() {
             </div>
 
             {/* Row 1.5: Web Service Business Info */}
-            <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
-              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-blue-500">group</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">学生总数</p>
+            <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div className="flex flex-col p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <span className="material-symbols-outlined text-sm text-blue-500">group</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">学生总数</p>
                   </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.studentCount ?? "-"}</h4>
+                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.students ?? "-"}</h4>
                 </div>
                 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-indigo-500">menu_book</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">学案总数</p>
+                <div className="flex flex-col p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                      <span className="material-symbols-outlined text-sm text-indigo-500">menu_book</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">课程总数</p>
                   </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.lessonCount ?? "-"}</h4>
+                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.courses ?? "-"}</h4>
                 </div>
 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-violet-500">art_track</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">作品数量</p>
+                <div className="flex flex-col p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-violet-100 dark:hover:border-violet-900/30">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg">
+                      <span className="material-symbols-outlined text-sm text-violet-500">art_track</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">作品数量</p>
                   </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.workCount ?? "-"}</h4>
+                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.works ?? "-"}</h4>
                 </div>
 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-emerald-500">timer</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">运行时间</p>
+                <div className="flex flex-col p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-amber-100 dark:hover:border-amber-900/30">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                      <span className="material-symbols-outlined text-sm text-amber-500">database</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">数据库大小</p>
                   </div>
-                  <h4 className="text-lg font-bold text-on-surface truncate" title={webServiceInfo?.systemUptime}>{webServiceInfo?.systemUptime ?? "-"}</h4>
+                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.dbSize ?? "-"}</h4>
                 </div>
 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-amber-500">start</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">进程开始</p>
+                <div className="flex flex-col p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-1.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
+                      <span className="material-symbols-outlined text-sm text-rose-500">memory</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">内存占用</p>
                   </div>
-                  <h4 className="text-[13px] font-bold text-on-surface truncate leading-tight" title={webServiceInfo?.processStartTime}>{webServiceInfo?.processStartTime ?? "-"}</h4>
-                </div>
-
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-rose-500">memory</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">ASP.NET 内存</p>
-                  </div>
-                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.aspNetMemory ?? "-"}</h4>
-                </div>
-
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-cyan-500">reorder</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">当前线程</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.aspNetThreadCount ?? "-"}</h4>
+                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.memoryMB ? `${webServiceInfo.memoryMB} MB` : "-"}</h4>
                 </div>
               </div>
             </div>
 
-            {/* Row 2: Metrics */}
+            {/* Row 2: Local Metrics */}
             <div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {/* Metric 1 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center relative overflow-hidden group">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Metric 1: Local Uptime */}
+                <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center relative overflow-hidden group">
                   <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <span className="material-symbols-outlined text-9xl text-emerald-500">
                       schedule
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
-                    系统正常运行时间
-                  </p>
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="material-symbols-outlined text-emerald-500 text-sm">
+                      timer
+                    </span>
+                    <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                      系统正常运行时间
+                    </p>
+                  </div>
                   <h4 className="text-2xl font-headline font-bold text-on-surface truncate pr-4">
                     {uptime ? uptime.value : "-"}{" "}
                     <span className="text-base text-on-surface-variant font-semibold">
@@ -741,47 +752,12 @@ export default function Dashboard() {
                     </span>
                   </h4>
                   <p className="text-xs text-on-surface-variant mt-2">
-                    自上次重启
+                    自上次重启 {webServiceInfo?.startTime ? `(启动: ${webServiceInfo.startTime})` : ""}
                   </p>
                 </div>
 
-                {/* Metric 2 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-amber-500 text-sm">
-                      database
-                    </span>
-                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                      数据库大小
-                    </p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
-                    {sysInfo
-                      ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable)
-                          .value
-                      : "-"}{" "}
-                    <span className="text-sm text-on-surface-variant font-semibold">
-                      {sysInfo
-                        ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable)
-                            .unit
-                        : ""}
-                    </span>
-                  </h4>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div
-                      className="bg-amber-500 h-1.5 rounded-full"
-                      style={{
-                        width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal) * 100 : 0}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-on-surface-variant mt-2">
-                    按磁盘总容量的 15% 估算，仅供参考
-                  </p>
-                </div>
-
-                {/* Metric 3 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                {/* Metric 2: Local CPU */}
+                <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="material-symbols-outlined text-rose-500 text-sm">
                       memory
@@ -803,8 +779,8 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Metric 4 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                {/* Metric 3: Local Memory */}
+                <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="material-symbols-outlined text-purple-500 text-sm">
                       memory_alt
@@ -819,13 +795,6 @@ export default function Dashboard() {
                       {sysInfo ? formatBytes(sysInfo.memoryUsed).unit : ""}
                     </span>
                   </h4>
-                  <p className="text-xs text-on-surface-variant mt-1">
-                    /{" "}
-                    {sysInfo
-                      ? `${formatBytes(sysInfo.memoryTotal).value} ${formatBytes(sysInfo.memoryTotal).unit}`
-                      : "-"}{" "}
-                    总计
-                  </p>
                   <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
                     <div
                       className="bg-purple-500 h-1.5 rounded-full"
@@ -834,53 +803,39 @@ export default function Dashboard() {
                       }}
                     ></div>
                   </div>
+                  <p className="text-xs text-on-surface-variant mt-2">
+                    总量: {sysInfo ? formatBytes(sysInfo.memoryTotal).value : "0"}{" "}
+                    {sysInfo ? formatBytes(sysInfo.memoryTotal).unit : "GB"}
+                  </p>
                 </div>
 
-                {/* Metric 5 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="material-symbols-outlined text-cyan-500 text-sm">
-                        hard_drive
-                      </span>
-                      <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">
-                        磁盘空间
-                      </p>
-                    </div>
-                    <p className="text-xs font-semibold text-on-surface-variant">
-                      {sysInfo
-                        ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}`
-                        : "-"}{" "}
-                      总计
+                {/* Metric 4: Local Disk */}
+                <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="material-symbols-outlined text-cyan-500 text-sm">
+                      storage
+                    </span>
+                    <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                      本地磁盘空间
                     </p>
                   </div>
-                  <div className="flex items-end justify-between mb-2">
-                    <h4 className="text-3xl font-headline font-bold text-on-surface">
-                      {sysInfo ? formatBytes(sysInfo.diskAvailable).value : "-"}{" "}
-                      <span className="text-base text-on-surface-variant font-semibold">
-                        {sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ""}{" "}
-                        可用
-                      </span>
-                    </h4>
-                    <span className="text-sm font-semibold text-on-surface">
-                      {sysInfo && sysInfo.diskTotal > 0
-                        ? (
-                            ((sysInfo.diskTotal - sysInfo.diskAvailable) /
-                              sysInfo.diskTotal) *
-                            100
-                          ).toFixed(0)
-                        : 0}
-                      % 已用
+                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
+                    {sysInfo ? formatBytes(sysInfo.diskAvailable).value : "-"}{" "}
+                    <span className="text-sm text-on-surface-variant font-semibold">
+                      {sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ""}
                     </span>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
+                  </h4>
+                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
                     <div
-                      className="bg-cyan-500 h-2 rounded-full transition-all duration-500"
+                      className="bg-cyan-500 h-1.5 rounded-full"
                       style={{
-                        width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal) * 100 : 0}%`,
+                        width: `${sysInfo && sysInfo.diskTotal > 0 ? (sysInfo.diskAvailable / sysInfo.diskTotal) * 100 : 0}%`,
                       }}
                     ></div>
                   </div>
+                  <p className="text-xs text-on-surface-variant mt-2">
+                    可用比例: {sysInfo && sysInfo.diskTotal > 0 ? Math.round((sysInfo.diskAvailable / sysInfo.diskTotal) * 100) : 0}%
+                  </p>
                 </div>
               </div>
             </div>

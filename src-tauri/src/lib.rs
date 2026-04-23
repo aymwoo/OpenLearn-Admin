@@ -133,13 +133,15 @@ struct FetchProgress {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct WebServiceInfo {
-    student_count: i32,
-    lesson_count: i32,
-    work_count: i32,
-    system_uptime: String,
-    process_start_time: String,
-    asp_net_memory: String,
-    asp_net_thread_count: i32,
+    courses: i32,
+    students: i32,
+    works: i32,
+    uptime: String,
+    start_time: String,
+    #[serde(rename = "memoryMB")]
+    memory_mb: String,
+    #[serde(rename = "dbSize")]
+    db_size: String,
 }
 
 fn default_branch(branch: &str) -> &str {
@@ -1323,22 +1325,32 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
 
 #[command]
 async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
-    let client = reqwest::Client::new();
-    let target_url = format!("{}/sysinfo.aspx", url.trim_end_matches('/'));
-    
-    let res = client.get(target_url)
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("无法创建 HTTP 客户端: {}", e))?;
+
+    let target_url = format!("{}/api/SiteStats.ashx", url.trim_end_matches('/'));
+    
+    let res = client.get(&target_url)
+        .header("Accept", "application/json")
         .send()
         .await
-        .map_err(|e| format!("无法连接到 Web 服务: {}", e))?;
+        .map_err(|e| format!("无法连接到 Web 服务 ({}): {}", target_url, e))?;
         
-    if !res.status().is_success() {
-        return Err(format!("HTTP 状态码错误: {}", res.status()));
+    let status = res.status();
+    if !status.is_success() {
+        return Err(format!("Web 服务返回 HTTP 错误: {} (URL: {})", status, target_url));
     }
     
-    let info = res.json::<WebServiceInfo>()
-        .await
-        .map_err(|e| format!("解析数据失败，请确保返回的是正确的 JSON 格式: {}", e))?;
+    let body = res.text().await
+        .map_err(|e| format!("读取响应内容失败 (URL: {}): {}", target_url, e))?;
+    
+    let info = serde_json::from_str::<WebServiceInfo>(&body)
+        .map_err(|e| {
+            format!("解析数据失败 (URL: {}), 错误: {}. \n原始数据: {}", target_url, e, body)
+        })?;
         
     Ok(info)
 }

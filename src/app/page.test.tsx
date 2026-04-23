@@ -43,7 +43,7 @@ vi.mock('@/lib/git', () => ({
     return () => {};
   }),
   listenServiceLog: vi.fn(async () => () => {}),
-  getSystemInfo: vi.fn().mockResolvedValue({ uptimeDays: 10, dbSizeTb: 0.5, dbSizePercentage: 20, cpuUsage: 15, memUsageGb: 16, memTotalGb: 32, memUsagePercentage: 50, diskFreeTb: 1.5, diskTotalTb: 2, diskUsagePercentage: 25 }),
+  getSystemInfo: vi.fn().mockResolvedValue({ uptime: 86400, cpuUsage: 15, memoryTotal: 32768, memoryUsed: 16384, diskTotal: 2048, diskAvailable: 1536 }),
 }));
 
 describe('Dashboard', () => {
