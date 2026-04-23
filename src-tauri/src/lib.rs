@@ -1458,6 +1458,10 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
         .await
         .map_err(|e| format!("无法连接到 Web 服务: {}", e))?;
         
+    if res.status().is_server_error() {
+        return Err(format!("Web 服务暂时不可用 (HTTP {})", res.status()));
+    }
+    
     if !res.status().is_success() {
         return Err(format!("HTTP 状态码错误: {}", res.status()));
     }
@@ -1465,7 +1469,7 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
     let info = res.json::<WebServiceInfo>()
         .await
         .map_err(|e| format!("解析数据失败，请确保返回的是正确的 JSON 格式: {}", e))?;
-        
+
     Ok(info)
 }
 
