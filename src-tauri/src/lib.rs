@@ -80,6 +80,7 @@ struct GitConfig {
     backup_before_pull: bool,
     version_file_path: String,
     changelog_file_path: String,
+    web_service_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
