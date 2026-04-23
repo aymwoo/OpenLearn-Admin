@@ -240,8 +240,12 @@ export default function Dashboard() {
       try {
         const info = await getWebServiceInfo(configRef.current.webServiceUrl);
         if (mounted) {
-          setWebServiceInfo(info);
-          setWsConnectionError(null);
+          if (info) {
+            setWebServiceInfo(info);
+            setWsConnectionError(null);
+          } else {
+            setWsConnectionError('服务暂时不可用');
+          }
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -709,7 +713,10 @@ export default function Dashboard() {
                   <button
                     onClick={() => { 
                       setWsConnectionError(null); 
-                      setTimeout(() => getWebServiceInfo(configRef.current?.webServiceUrl || '').then(setWebServiceInfo).catch(() => {}), 1000);
+                      getWebServiceInfo(configRef.current?.webServiceUrl || '').then(info => {
+                        if (info) setWebServiceInfo(info);
+                        else setWsConnectionError('服务暂时不可用');
+                      });
                     }}
                     className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
                   >

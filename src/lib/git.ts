@@ -216,13 +216,14 @@ export async function getSystemInfo(url?: string): Promise<SystemInfo> {
 /**
  * 从web服务获取详细的业务数据和运行时信息
  * 使用 Tauri 后端进行请求以绕过浏览器 CORS 限制
+ * 返回 null 表示连接失败，由页面处理错误显示
  */
-export async function getWebServiceInfo(url: string): Promise<WebServiceInfo> {
+export async function getWebServiceInfo(url: string): Promise<WebServiceInfo | null> {
   try {
     return await invoke<WebServiceInfo>('get_web_service_info', { url });
   } catch (error) {
     console.error("Web Service Info fetch failed:", error);
-    throw new Error(String(error) || '无法连接到 Web 服务，请检查 URL 是否正确。');
+    return null;
   }
 }
 
