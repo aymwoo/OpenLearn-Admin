@@ -697,7 +697,9 @@ export default function Dashboard() {
                     <span className="material-symbols-outlined text-amber-500">warning</span>
                     <div>
                       <p className="text-sm font-medium text-amber-700 dark:text-amber-400">无法连接到 Web 服务</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">请检查服务是否启动，3秒后自动重试...</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        服务地址: {config?.webServiceUrl || '未配置'} | 请检查服务是否启动，3秒后自动重试...
+                      </p>
                     </div>
                   </div>
                   <button
