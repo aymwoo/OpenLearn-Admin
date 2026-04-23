@@ -435,12 +435,12 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
-              <div className="flex items-center justify-center px-3 py-1.5 bg-blue-100 dark:bg-blue-900/50">
+              <div className="flex items-center justify-center px-3 py-1.5 border-b-2 border-blue-500">
                 <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
                   database
                 </span>
               </div>
-              <div className="flex items-center gap-1 px-2 py-1.5 bg-blue-50 dark:bg-blue-950/30">
+              <div className="flex items-center gap-1 px-2 py-1.5">
                 <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
                   <span className="material-symbols-outlined text-base">play_arrow</span>
                 </button>
@@ -454,12 +454,12 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center rounded-lg border border-purple-200 dark:border-purple-800 overflow-hidden">
-              <div className="flex items-center justify-center px-3 py-1.5 bg-purple-100 dark:bg-purple-900/50">
+              <div className="flex items-center justify-center px-3 py-1.5 border-b-2 border-purple-500">
                 <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
                   language
                 </span>
               </div>
-              <div className="flex items-center gap-1 px-2 py-1.5 bg-purple-50 dark:bg-purple-950/30">
+              <div className="flex items-center gap-1 px-2 py-1.5">
                 <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
                   <span className="material-symbols-outlined text-base">play_arrow</span>
                 </button>
