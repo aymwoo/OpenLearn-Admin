@@ -76,6 +76,7 @@ jobs:
 
       # 关键修改：使用适配 Tauri v2 的 Action 版本
       - name: Build Tauri App
+        id: tauri_build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,6 +84,38 @@ jobs:
           # 自动触发发布逻辑
           tagName: ${{ github.ref_name }}
           releaseName: "Release ${{ github.ref_name }}"
-          releaseBody: "See the assets below."
+          releaseBody: "See the assets below. For Windows, use the 'Full' package if you need offline installers."
           releaseDraft: false
           prerelease: false
+
+      # 针对 Windows 生成包含环境包的特殊压缩包
+      - name: Create Windows Full ZIP
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".Replace("v", "")
+          $pkgName = "OpenLearn-Admin-v$version-Windows-Full"
+          New-Item -ItemType Directory -Path $pkgName
+          
+          # 复制主程序 (从编译目录获取)
+          Copy-Item "src-tauri/target/release/Git Update Manager.exe" -Destination "$pkgName/OpenLearn-Admin.exe"
+          
+          # 复制环境资产
+          Copy-Item -Recurse "assets-windows" -Destination "$pkgName/"
+          
+          # 复制启动脚本 (如果根目录有的话，或者直接使用 exe)
+          # Copy-Item "assets-windows/启动.bat" -Destination "$pkgName/"
+          
+          # 压缩
+          Compress-Archive -Path "$pkgName/*" -DestinationPath "$pkgName.zip"
+          
+          echo "PACKAGE_PATH=$pkgName.zip" >> $env:GITHUB_ENV
+
+      - name: Upload Windows Full ZIP
+        if: matrix.platform == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PACKAGE_PATH }}
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
