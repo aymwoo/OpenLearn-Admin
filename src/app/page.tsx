@@ -394,16 +394,6 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-4 pt-4 border-t border-surface-container-high before:content-[''] before:block before:w-full before:h-px before:bg-surface-container-high before:mb-4">
-          <button
-            onClick={handlePull}
-            disabled={loading}
-            className="w-full flex items-center justify-center space-x-2 bg-primary text-on-primary py-2.5 px-4 rounded-xl font-semibold text-sm hover:bg-primary-container transition-colors shadow-[0_12px_40px_rgba(0,67,148,0.08)] disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-sm">
-              {loading ? "sync" : "update"}
-            </span>
-            <span>{loading ? "Updating..." : "System Update"}</span>
-          </button>
           <div className="space-y-1">
             <Link
               href="#"
