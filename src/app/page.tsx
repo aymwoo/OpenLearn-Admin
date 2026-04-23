@@ -434,63 +434,37 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-3">
-              <button
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Database Status"
-                title={dbStatus ? `数据库: ${dbStatus.server}/${dbStatus.database}` : "数据库状态"}
-              >
-                <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`} aria-hidden="true">
-                  {dbStatus?.connected ? 'dns' : 'dns'}
-                </span>
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {dbStatus?.connected ? 'dns' : 'dns'}
+              </span>
+              <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
+                <span className="material-symbols-outlined text-sm">play_arrow</span>
               </button>
-              <button
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Web Service Status"
-                title={wsConnectionError ? `Web服务: ${config?.webServiceUrl} (未连接)` : `Web服务: ${config?.webServiceUrl} (已连接)`}
-              >
-                <span className={`material-symbols-outlined ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`} aria-hidden="true">
-                  {wsConnectionError ? 'cloud_off' : 'cloud_done'}
-                </span>
+              <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
+                <span className="material-symbols-outlined text-sm">stop</span>
+              </button>
+              <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded">
+                <span className="material-symbols-outlined text-sm">refresh</span>
               </button>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg">
-                <button
-                  title={dbStatus ? `数据库: ${dbStatus.server}/${dbStatus.database}` : "数据库状态"}
-                  className="p-1.5 text-slate-500 dark:text-slate-400"
-                >
-                  <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    {dbStatus?.connected ? 'dns' : 'dns'}
-                  </span>
-                </button>
-                <button onClick={handleStartService} disabled={loading} className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
-                  <span className="material-symbols-outlined text-sm">play_arrow</span>
-                </button>
-                <button onClick={handleStopService} disabled={loading} className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
-                  <span className="material-symbols-outlined text-sm">stop</span>
-                </button>
-              </div>
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+              <span className={`material-symbols-outlined ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
+                {wsConnectionError ? 'cloud_off' : 'cloud_done'}
+              </span>
+              <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
+                <span className="material-symbols-outlined text-sm">play_arrow</span>
+              </button>
+              <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
+                <span className="material-symbols-outlined text-sm">stop</span>
+              </button>
+              <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded">
+                <span className="material-symbols-outlined text-sm">refresh</span>
+              </button>
+            </div>
 
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg">
-                <button
-                  title={wsConnectionError ? `Web服务: ${config?.webServiceUrl} (未连接)` : `Web服务: ${config?.webServiceUrl} (已连接)`}
-                  className="p-1.5 text-slate-500 dark:text-slate-400"
-                >
-                  <span className={`material-symbols-outlined ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
-                    {wsConnectionError ? 'cloud_off' : 'cloud_done'}
-                  </span>
-                </button>
-                <button onClick={handleStartService} disabled={loading} className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
-                  <span className="material-symbols-outlined text-sm">play_arrow</span>
-                </button>
-                <button onClick={handleStopService} disabled={loading} className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
-                  <span className="material-symbols-outlined text-sm">stop</span>
-                </button>
-              </div>
-
-              <Link
+            <Link
                 href="/settings"
                 className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Settings"
@@ -501,7 +475,6 @@ export default function Dashboard() {
                 </span>
               </Link>
             </div>
-          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-8">
