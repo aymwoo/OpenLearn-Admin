@@ -725,8 +725,9 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
+            <>
             <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
-              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-3 gap-4">
                 <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center space-x-2 mb-1.5">
                     <span className="material-symbols-outlined text-sm text-blue-500">group</span>
@@ -750,7 +751,11 @@ export default function Dashboard() {
                   </div>
                   <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.workCount ?? "-"}</h4>
                 </div>
+              </div>
+            </div>
 
+            <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center space-x-2 mb-1.5">
                     <span className="material-symbols-outlined text-sm text-emerald-500">timer</span>
@@ -758,7 +763,7 @@ export default function Dashboard() {
                   </div>
                   <h4 className="text-lg font-bold text-on-surface truncate" title={webServiceInfo?.systemUptime}>{webServiceInfo?.systemUptime ?? "-"}</h4>
                 </div>
-
+                
                 <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center space-x-2 mb-1.5">
                     <span className="material-symbols-outlined text-sm text-rose-500">memory</span>
@@ -784,6 +789,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+            </>
             )}
 
             {/* Row 2: Metrics */}
