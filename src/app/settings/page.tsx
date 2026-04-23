@@ -228,22 +228,28 @@ export default function Settings() {
             </div>
 
             <div className="mb-6 flex items-center justify-between">
-              <span className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
+              <span id="force-push-label" className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
               <button
                 type="button"
+                role="switch"
+                aria-checked={config.forcePush}
+                aria-labelledby="force-push-label"
                 onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-                className={`w-12 h-6 rounded-full transition-colors ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+                className={`w-12 h-6 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-2 ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
               >
                 <span className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.forcePush ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>
             </div>
 
             <div className="mb-8 flex items-center justify-between">
-              <span className="text-base text-[#566167]">拉取前备份</span>
+              <span id="backup-before-pull-label" className="text-base text-[#566167]">拉取前备份</span>
               <button
                 type="button"
+                role="switch"
+                aria-checked={config.backupBeforePull}
+                aria-labelledby="backup-before-pull-label"
                 onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-                className={`w-12 h-6 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+                className={`w-12 h-6 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-2 ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
               >
                 <span className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>

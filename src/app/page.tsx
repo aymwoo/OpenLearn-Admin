@@ -542,7 +542,8 @@ export default function Dashboard() {
                   <button
                     onClick={handlePull}
                     disabled={loading || isUpToDate}
-                    className={`relative w-32 h-32 flex items-center justify-center shrink-0 ml-4 group transition-all rounded-full ${!isUpToDate && !loading ? "hover:scale-105 active:scale-95 cursor-pointer" : "cursor-default"}`}
+                    aria-label={isUpToDate ? "系统已是最新" : loading ? `正在同步: ${Math.round(progress.percent)}%` : "同步远端仓库"}
+                    className={`relative w-32 h-32 flex items-center justify-center shrink-0 ml-4 group transition-all rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary focus-visible:ring-offset-2 ${!isUpToDate && !loading ? "hover:scale-105 active:scale-95 cursor-pointer" : "cursor-default"}`}
                   >
                     <svg
                       className="w-full h-full transform -rotate-90 absolute top-0 left-0"
