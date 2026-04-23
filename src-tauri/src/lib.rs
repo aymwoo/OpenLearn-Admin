@@ -72,7 +72,6 @@ enum DirectoryState {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GitConfig {
-    #[allow(dead_code)]
     remote_url: String,
     local_path: String,
     branch: String,
@@ -80,6 +79,7 @@ struct GitConfig {
     backup_before_pull: bool,
     version_file_path: String,
     changelog_file_path: String,
+    #[allow(dead_code)]
     web_service_url: Option<String>,
 }
 
