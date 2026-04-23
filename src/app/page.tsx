@@ -391,27 +391,6 @@ export default function Dashboard() {
             </span>
             <span>Dashboard</span>
           </Link>
-          <Link
-            href="#"
-            className="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-headline text-sm font-semibold active:translate-x-1"
-          >
-            <span className="material-symbols-outlined">folder_managed</span>
-            <span>Repositories</span>
-          </Link>
-          <Link
-            href="#"
-            className="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-headline text-sm font-semibold active:translate-x-1"
-          >
-            <span className="material-symbols-outlined">insights</span>
-            <span>Metrics</span>
-          </Link>
-          <Link
-            href="#"
-            className="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-headline text-sm font-semibold active:translate-x-1"
-          >
-            <span className="material-symbols-outlined">terminal</span>
-            <span>Terminal</span>
-          </Link>
         </div>
 
         <div className="space-y-4 pt-4 border-t border-surface-container-high before:content-[''] before:block before:w-full before:h-px before:bg-surface-container-high before:mb-4">
