@@ -435,19 +435,19 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center">
-              <div className="flex items-center justify-center px-3 py-1.5">
-                <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
+              <div className="flex items-center justify-center px-3">
+                <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-purple-500' : 'text-rose-500'}`}>
                   database
                 </span>
               </div>
-              <div className="flex items-center gap-1 px-2 py-1.5">
-                <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
+              <div className="flex items-center gap-1 px-2">
+                <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center">
                   <span className="material-symbols-outlined text-base">play_arrow</span>
                 </button>
-                <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
+                <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center">
                   <span className="material-symbols-outlined text-base">stop</span>
                 </button>
-                <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded">
+                <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center">
                   <span className="material-symbols-outlined text-base">refresh</span>
                 </button>
               </div>
@@ -456,19 +456,19 @@ export default function Dashboard() {
             <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
             <div className="flex items-center">
-              <div className="flex items-center justify-center px-3 py-1.5">
-                <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
+              <div className="flex items-center justify-center px-3">
+                <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-blue-500'}`}>
                   language
                 </span>
               </div>
-              <div className="flex items-center gap-1 px-2 py-1.5">
-                <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
+              <div className="flex items-center gap-1 px-2">
+                <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center">
                   <span className="material-symbols-outlined text-base">play_arrow</span>
                 </button>
-                <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
+                <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center">
                   <span className="material-symbols-outlined text-base">stop</span>
                 </button>
-                <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded">
+                <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center">
                   <span className="material-symbols-outlined text-base">refresh</span>
                 </button>
               </div>
