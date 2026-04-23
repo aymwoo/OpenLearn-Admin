@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Git Update Manager",
+  "productName": "GitUpdateManager",
   "version": "1.0.0",
   "identifier": "com.gitupdater.app",
   "build": {
