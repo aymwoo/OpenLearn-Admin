@@ -1485,10 +1485,10 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
         student_count: raw.students.unwrap_or(0),
         lesson_count: raw.courses.unwrap_or(0),
         work_count: raw.works.unwrap_or(0),
-        system_uptime: format!("{} ({})", raw.uptime.unwrap_or_default(), raw.start_time.unwrap_or_default()),
+        system_uptime: raw.uptime.unwrap_or_default(),
         process_start_time: raw.start_time.unwrap_or_default(),
         asp_net_memory: raw.memory_mb.unwrap_or_default(),
-        asp_net_thread_count: 0,
+        asp_net_thread_count: raw.works.unwrap_or(0),
         courses: raw.courses,
         db_size: raw.db_size,
     })
