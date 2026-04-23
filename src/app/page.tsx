@@ -434,7 +434,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <div className="flex items-center border-b-2 border-blue-300 dark:border-blue-700">
+            <div className="flex items-center">
               <div className="flex items-center justify-center px-3 py-1.5">
                 <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
                   database
@@ -453,7 +453,9 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center border-b-2 border-purple-300 dark:border-purple-700">
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+            <div className="flex items-center">
               <div className="flex items-center justify-center px-3 py-1.5">
                 <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
                   language
@@ -471,6 +473,8 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
+
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
             <Link
                 href="/settings"
