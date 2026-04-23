@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { DEFAULT_GIT_CONFIG, type GitConfig, loadConfig, saveConfig, getBranches, getRemoteStatus, cloneRepo } from '@/lib/git';
 
 export default function Settings() {
+  const router = useRouter();
   const [config, setConfig] = useState<GitConfig>(DEFAULT_GIT_CONFIG);
   const [branches, setBranches] = useState<string[]>(['main', 'master']);
   const [loading, setLoading] = useState(false);
@@ -98,14 +101,29 @@ export default function Settings() {
 
         <div className="mb-6">
           <label htmlFor="localPath" className="block text-sm text-[#566167] mb-2">本地路径</label>
-          <input
-            id="localPath"
-            type="text"
-            value={config.localPath}
-            onChange={e => setConfig({ ...config, localPath: e.target.value })}
-            placeholder="/path/to/local/repo"
-            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
-          />
+          <div className="flex gap-2">
+            <input
+              id="localPath"
+              type="text"
+              value={config.localPath}
+              onChange={e => setConfig({ ...config, localPath: e.target.value })}
+              placeholder="/path/to/local/repo"
+              className="flex-1 px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                const selected = await open({ directory: true });
+                if (selected && typeof selected === 'string') {
+                  setConfig({ ...config, localPath: selected });
+                }
+              }}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md border hover:bg-gray-200 transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">folder_open</span>
+              浏览
+            </button>
+          </div>
         </div>
 
         <div className="mb-6">
@@ -189,6 +207,14 @@ export default function Settings() {
           className="w-full py-3 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-lg font-medium disabled:opacity-50"
         >
           {loading ? '保存中...' : '保存配置'}
+        </button>
+
+        <button
+          onClick={() => router.push('/setup')}
+          className="w-full py-3 mt-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-sm">settings_suggest</span>
+          重新运行配置向导
         </button>
 
         {showCloneConfirm && (
