@@ -130,6 +130,18 @@ struct FetchProgress {
     result: Option<PullResult>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WebServiceInfo {
+    student_count: i32,
+    lesson_count: i32,
+    work_count: i32,
+    system_uptime: String,
+    process_start_time: String,
+    asp_net_memory: String,
+    asp_net_thread_count: i32,
+}
+
 fn default_branch(branch: &str) -> &str {
     if branch.trim().is_empty() {
         "main"
@@ -1309,6 +1321,28 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
     }
 }
 
+#[command]
+async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
+    let client = reqwest::Client::new();
+    let target_url = format!("{}/sysinfo.aspx", url.trim_end_matches('/'));
+    
+    let res = client.get(target_url)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| format!("无法连接到 Web 服务: {}", e))?;
+        
+    if !res.status().is_success() {
+        return Err(format!("HTTP 状态码错误: {}", res.status()));
+    }
+    
+    let info = res.json::<WebServiceInfo>()
+        .await
+        .map_err(|e| format!("解析数据失败，请确保返回的是正确的 JSON 格式: {}", e))?;
+        
+    Ok(info)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     setup_graphics_workarounds();
@@ -1326,6 +1360,7 @@ pub fn run() {
             get_dashboard_data,
             run_smart_pull,
             get_system_info,
+            get_web_service_info,
             start_service,
             stop_service,
         ])
