@@ -454,25 +454,41 @@ export default function Dashboard() {
                 </span>
               </button>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleStartService}
-                disabled={loading}
-                className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-[0_4px_14px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center space-x-1"
-              >
-                <span className="material-symbols-outlined text-sm">
-                  play_arrow
-                </span>
-                <span>Start Service</span>
-              </button>
-              <button
-                onClick={handleStopService}
-                disabled={loading}
-                className="px-5 py-2 bg-rose-600 text-white rounded-xl font-semibold text-sm hover:bg-rose-700 transition-colors shadow-[0_4px_14px_rgba(225,29,72,0.3)] disabled:opacity-50 flex items-center space-x-1"
-              >
-                <span className="material-symbols-outlined text-sm">stop</span>
-                <span>Stop Service</span>
-              </button>
+
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg">
+                <button
+                  title={dbStatus ? `数据库: ${dbStatus.server}/${dbStatus.database}` : "数据库状态"}
+                  className="p-1.5 text-slate-500 dark:text-slate-400"
+                >
+                  <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {dbStatus?.connected ? 'dns' : 'dns'}
+                  </span>
+                </button>
+                <button onClick={handleStartService} disabled={loading} className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
+                  <span className="material-symbols-outlined text-sm">play_arrow</span>
+                </button>
+                <button onClick={handleStopService} disabled={loading} className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
+                  <span className="material-symbols-outlined text-sm">stop</span>
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg">
+                <button
+                  title={wsConnectionError ? `Web服务: ${config?.webServiceUrl} (未连接)` : `Web服务: ${config?.webServiceUrl} (已连接)`}
+                  className="p-1.5 text-slate-500 dark:text-slate-400"
+                >
+                  <span className={`material-symbols-outlined ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
+                    {wsConnectionError ? 'cloud_off' : 'cloud_done'}
+                  </span>
+                </button>
+                <button onClick={handleStartService} disabled={loading} className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
+                  <span className="material-symbols-outlined text-sm">play_arrow</span>
+                </button>
+                <button onClick={handleStopService} disabled={loading} className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded">
+                  <span className="material-symbols-outlined text-sm">stop</span>
+                </button>
+              </div>
 
               <Link
                 href="/settings"
