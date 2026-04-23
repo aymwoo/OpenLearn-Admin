@@ -45,7 +45,7 @@ jobs:
       - name: Build Tauri App
         run: pnpm tauri build --bundles nsis
 
-      # 确定版本号
+      # 确定版本号和时间戳
       - name: Determine version
         id: version
         shell: pwsh
@@ -56,15 +56,18 @@ jobs:
           } else {
             $ver = "${{ github.sha }}".Substring(0, 7)
           }
+          $ts = Get-Date -Format "yyyyMMddHHmm"
           echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "TIMESTAMP=$ts" >> $env:GITHUB_OUTPUT
           echo "版本号: $ver"
+          echo "时间戳: $ts"
 
       # 生成 NSIS 安装包 Release
       - name: Upload NSIS Installer
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.version.outputs.VERSION }}"
-          name: "Release v${{ steps.version.outputs.VERSION }} (Windows)"
+          tag_name: "Openlearn-Manager-${{ steps.version.outputs.TIMESTAMP }}"
+          name: "Openlearn-Manager-${{ steps.version.outputs.TIMESTAMP }}"
           body: |
             ## Windows 安装包
 
@@ -100,7 +103,7 @@ jobs:
       - name: Upload Windows Full ZIP
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.version.outputs.VERSION }}"
+          tag_name: "Openlearn-Manager-${{ steps.version.outputs.TIMESTAMP }}"
           files: ${{ env.PACKAGE_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

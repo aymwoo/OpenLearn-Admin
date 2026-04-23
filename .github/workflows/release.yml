@@ -30,6 +30,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Get current time
+        id: date
+        shell: bash
+        run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+
       # Linux 依赖 (针对 Tauri v2 进行了精简和确认)
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
@@ -84,8 +89,8 @@ jobs:
         if: matrix.platform == 'windows-latest'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "Release ${{ github.ref_name }}"
+          tag_name: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
+          name: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
           body: "See the assets below. For Windows, use the 'Full' package if you need offline installers."
           draft: false
           prerelease: false
@@ -101,8 +106,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Release ${{ github.ref_name }}"
+          tagName: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
+          releaseName: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
           releaseBody: "See the assets below. For Windows, use the 'Full' package if you need offline installers."
           releaseDraft: false
           prerelease: false
@@ -140,6 +145,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.PACKAGE_PATH }}
-          tag_name: ${{ github.ref_name }}
+          tag_name: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
