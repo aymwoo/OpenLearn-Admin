@@ -436,7 +436,7 @@ export default function Dashboard() {
           <div className="flex items-center space-x-6">
             <div className="flex items-center justify-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
               <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
-                storage
+                sd storage
               </span>
               <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
                 <span className="material-symbols-outlined text-sm">play_arrow</span>
@@ -451,7 +451,7 @@ export default function Dashboard() {
 
             <div className="flex items-center justify-center space-x-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
               <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
-                dns
+                language
               </span>
               <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
                 <span className="material-symbols-outlined text-sm">play_arrow</span>
