@@ -50,11 +50,15 @@ export interface FetchProgress {
     | 'backup'
     | 'pulling'
     | 'refreshing_local'
+    | 'transferring'
     | 'done'
     | 'error';
   percent: number;
   label: string;
   result?: PullResult;
+  receivedBytes?: number;
+  totalObjects?: number;
+  receivedObjects?: number;
 }
 
 export interface SystemInfo {

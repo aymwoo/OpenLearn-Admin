@@ -128,6 +128,32 @@ struct FetchProgress {
     percent: u8,
     label: String,
     result: Option<PullResult>,
+    received_bytes: Option<u64>,
+    total_objects: Option<u32>,
+    received_objects: Option<u32>,
+}
+
+fn update_progress(
+    window: &Window,
+    stage: &str,
+    percent: u8,
+    label: &str,
+    received_bytes: Option<u64>,
+    total_objects: Option<u32>,
+    received_objects: Option<u32>,
+) {
+    let _ = window.emit(
+        PROGRESS_EVENT,
+        FetchProgress {
+            stage: stage.to_string(),
+            percent,
+            label: label.to_string(),
+            result: None,
+            received_bytes,
+            total_objects,
+            received_objects,
+        },
+    );
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,6 +344,54 @@ fn open_repo(path: &str) -> Result<Repository, String> {
     Repository::open(path).map_err(|e| format!("无法打开仓库: {e}"))
 }
 
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+static TRANSFER_RECEIVED: AtomicU32 = AtomicU32::new(0);
+static TRANSFER_TOTAL: AtomicU32 = AtomicU32::new(0);
+static TRANSFER_BYTES: AtomicU64 = AtomicU64::new(0);
+
+fn start_transfer_progress_thread(window: Window, stop_flag: Arc<AtomicU32>) {
+    thread::spawn(move || {
+        let mut last_percent = 0u8;
+        loop {
+            if stop_flag.load(Ordering::Relaxed) == 1 {
+                break;
+            }
+            
+            let received = TRANSFER_RECEIVED.load(Ordering::Relaxed);
+            let total = TRANSFER_TOTAL.load(Ordering::Relaxed);
+            let bytes = TRANSFER_BYTES.load(Ordering::Relaxed);
+            
+            if total > 0 {
+                let percent = ((received as u64 * 100) / total as u64) as u8;
+                if percent != last_percent {
+                    last_percent = percent;
+                    let label = format!(
+                        "Receiving objects: {}% ({}/{})",
+                        percent, received, total
+                    );
+                    let _ = window.emit(
+                        PROGRESS_EVENT,
+                        FetchProgress {
+                            stage: "transferring".to_string(),
+                            percent,
+                            label,
+                            result: None,
+                            received_bytes: Some(bytes),
+                            total_objects: Some(total),
+                            received_objects: Some(received),
+                        },
+                    );
+                }
+            }
+            
+            thread::sleep(Duration::from_millis(200));
+        }
+    });
+}
+
 fn remote_callbacks() -> RemoteCallbacks<'static> {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(|_url, username, _allowed| {
@@ -326,6 +400,12 @@ fn remote_callbacks() -> RemoteCallbacks<'static> {
         } else {
             Cred::default()
         }
+    });
+    callbacks.transfer_progress(|progress| {
+        TRANSFER_RECEIVED.store(progress.received_objects() as u32, Ordering::Relaxed);
+        TRANSFER_TOTAL.store(progress.total_objects() as u32, Ordering::Relaxed);
+        TRANSFER_BYTES.store(progress.received_bytes() as u64, Ordering::Relaxed);
+        true
     });
     callbacks
 }
@@ -743,6 +823,36 @@ fn emit_progress(window: &Window, stage: &str, percent: u8, label: &str) -> Resu
                 percent,
                 label: label.to_string(),
                 result: None,
+                received_bytes: None,
+                total_objects: None,
+                received_objects: None,
+            },
+        )
+        .map_err(|e| format!("发送进度失败: {e}"))
+}
+
+fn emit_progress_with_transfer(
+    window: &Window,
+    stage: &str,
+    percent: u8,
+    label: &str,
+    received_bytes: u64,
+    total_objects: u32,
+    received_objects: u32,
+) -> Result<(), String> {
+    let bytes_mb = received_bytes as f64 / (1024.0 * 1024.0);
+    let label_with_size = format!("{} ({:.1} MB, {}/{} objects)", label, bytes_mb, received_objects, total_objects);
+    window
+        .emit(
+            PROGRESS_EVENT,
+            FetchProgress {
+                stage: stage.to_string(),
+                percent,
+                label: label_with_size,
+                result: None,
+                received_bytes: Some(received_bytes),
+                total_objects: Some(total_objects),
+                received_objects: Some(received_objects),
             },
         )
         .map_err(|e| format!("发送进度失败: {e}"))
@@ -976,6 +1086,9 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
                         percent: 100,
                         label: "更新成功".to_string(),
                         result: Some(res),
+                        received_bytes: None,
+                        total_objects: None,
+                        received_objects: None,
                     },
                 );
             }
@@ -987,6 +1100,9 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
                         percent: 0,
                         label: e.clone(),
                         result: None,
+                        received_bytes: None,
+                        total_objects: None,
+                        received_objects: None,
                     },
                 );
             }
@@ -1351,6 +1467,7 @@ pub fn run() {
             child_process: Mutex::new(None),
             system: Mutex::new(System::new_all()),
         })
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             git_clone,
             git_pull,
