@@ -505,15 +505,6 @@ export default function Dashboard() {
                 <span>Stop Service</span>
               </button>
 
-              <button
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Sync Status"
-                title="Sync Status"
-              >
-                <span className="material-symbols-outlined" aria-hidden="true">
-                  cloud_done
-                </span>
-              </button>
               <Link
                 href="/settings"
                 className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -524,12 +515,6 @@ export default function Dashboard() {
                   settings
                 </span>
               </Link>
-            </div>
-
-            <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-on-surface-variant">
-                person
-              </span>
             </div>
           </div>
         </header>
