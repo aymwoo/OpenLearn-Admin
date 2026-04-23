@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { getSystemInfo, type SystemInfo } from "@/lib/sys";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/lib/git";
 
 export default function Dashboard() {
+  const router = useRouter();
   const [config, setConfig] = useState<GitConfig | null>(null);
   const [status, setStatus] = useState<RepoSyncStatus | null>(null);
   const [localDetails, setLocalDetails] = useState<VersionDetails | null>(null);
@@ -64,7 +66,12 @@ export default function Dashboard() {
 
     const hydrate = async () => {
       const cfg = await loadConfig();
-      if (!mounted || !cfg) {
+      if (!mounted) {
+        return;
+      }
+
+      if (!cfg) {
+        router.push('/setup');
         return;
       }
 
