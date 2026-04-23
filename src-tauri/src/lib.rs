@@ -176,6 +176,8 @@ struct WebServiceInfo {
     process_start_time: String,
     asp_net_memory: String,
     asp_net_thread_count: i32,
+    courses: Option<i32>,
+    db_size: Option<String>,
 }
 
 fn default_branch(branch: &str) -> &str {
@@ -1450,7 +1452,7 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
 #[command]
 async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
     let client = reqwest::Client::new();
-    let target_url = format!("{}/sysinfo.aspx", url.trim_end_matches('/'));
+    let target_url = format!("{}/api/SiteStats.ashx", url.trim_end_matches('/'));
     
     let res = client.get(target_url)
         .timeout(std::time::Duration::from_secs(5))
@@ -1466,11 +1468,30 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
         return Err(format!("HTTP 状态码错误: {}", res.status()));
     }
     
-    let info = res.json::<WebServiceInfo>()
-        .await
-        .map_err(|e| format!("解析数据失败，请确保返回的是正确的 JSON 格式: {}", e))?;
-
-    Ok(info)
+    #[derive(Deserialize)]
+    struct SiteStatsRaw {
+        courses: Option<i32>,
+        students: Option<i32>,
+        works: Option<i32>,
+        uptime: Option<String>,
+        start_time: Option<String>,
+        memory_mb: Option<String>,
+        db_size: Option<String>,
+    }
+    
+    let raw: SiteStatsRaw = res.json().await.map_err(|e| format!("解析数据失败: {}", e))?;
+    
+    Ok(WebServiceInfo {
+        student_count: raw.students.unwrap_or(0),
+        lesson_count: raw.courses.unwrap_or(0),
+        work_count: raw.works.unwrap_or(0),
+        system_uptime: raw.uptime.unwrap_or_default(),
+        process_start_time: raw.start_time.unwrap_or_default(),
+        asp_net_memory: raw.memory_mb.unwrap_or_default(),
+        asp_net_thread_count: 0,
+        courses: raw.courses,
+        db_size: raw.db_size,
+    })
 }
 
 #[command]
