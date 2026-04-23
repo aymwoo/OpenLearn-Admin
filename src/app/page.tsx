@@ -468,14 +468,18 @@ export default function Dashboard() {
                 title={dbStatus ? `数据库: ${dbStatus.server}/${dbStatus.database}` : "数据库状态"}
               >
                 <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`} aria-hidden="true">
-                  {dbStatus?.connected ? 'database' : 'database_error'}
+                  {dbStatus?.connected ? 'dns' : 'dns'}
                 </span>
               </button>
-              {dbStatus && (
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {dbStatus.server}/{dbStatus.database}
+              <button
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Web Service Status"
+                title={wsConnectionError ? `Web服务: ${config?.webServiceUrl} (未连接)` : `Web服务: ${config?.webServiceUrl} (已连接)`}
+              >
+                <span className={`material-symbols-outlined ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`} aria-hidden="true">
+                  {wsConnectionError ? 'cloud_off' : 'cloud_done'}
                 </span>
-              )}
+              </button>
             </div>
             <div className="flex space-x-3">
               <button
