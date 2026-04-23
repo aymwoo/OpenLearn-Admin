@@ -1469,24 +1469,31 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
     }
     
     #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
     struct SiteStatsRaw {
         courses: Option<i32>,
         students: Option<i32>,
         works: Option<i32>,
         uptime: Option<String>,
+        #[serde(rename = "startTime")]
         start_time: Option<String>,
+        #[serde(rename = "memoryMB")]
         memory_mb: Option<String>,
+        #[serde(rename = "dbSize")]
         db_size: Option<String>,
     }
     
     let raw: SiteStatsRaw = res.json().await.map_err(|e| format!("解析数据失败: {}", e))?;
     
+    let uptime_str = raw.uptime.unwrap_or_default();
+    let start_time_str = raw.start_time.unwrap_or_default();
+    
     Ok(WebServiceInfo {
         student_count: raw.students.unwrap_or(0),
         lesson_count: raw.courses.unwrap_or(0),
         work_count: raw.works.unwrap_or(0),
-        system_uptime: raw.uptime.unwrap_or_default(),
-        process_start_time: raw.start_time.unwrap_or_default(),
+        system_uptime: format!("{} ({})", uptime_str, start_time_str),
+        process_start_time: start_time_str,
         asp_net_memory: raw.memory_mb.unwrap_or_default(),
         asp_net_thread_count: raw.works.unwrap_or(0),
         courses: raw.courses,
