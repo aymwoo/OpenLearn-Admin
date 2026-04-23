@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-22 - Completed quick task 260422-i24: 添加更新开始时的进度显示
+2026-04-23 - Completed quick task 260423-n3s: 本地仓库的路径支持两种方式的设置,1是通过弹出的文件选择框进入输入,2是手动输入路径,默认的远程仓库地址设置为https://gitee.com/nylon26/openlearnsite.git
 
 ---
 
@@ -15,6 +15,7 @@
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260423-n3s-1-2-https-gitee-com-nylon26-openlearnsit | 本地仓库的路径支持两种方式的设置,1是通过弹出的文件选择框进入输入,2是手动输入路径,默认的远程仓库地址设置为https://gitee.com/nylon26/openlearnsite.git | 2026-04-23 | d1bf87d | [260423-n3s-1-2-https-gitee-com-nylon26-openlearnsit](./quick/260423-n3s-1-2-https-gitee-com-nylon26-openlearnsit/) |
 | 260422-i24-update-progress | 添加更新开始时的进度显示 | 2026-04-22 | d50b46d | [260422-i24-update-progress](./quick/260422-i24-update-progress/) |
 | 260422-hvh-unbornbranch | 修复强制覆盖时的UnbornBranch错误 | 2026-04-22 | 28ebae3 | [260422-hvh-unbornbranch](./quick/260422-hvh-unbornbranch/) |
 | 260422-hnj-force-override | 实现强制覆盖：备份冲突文件后用远端强制覆盖本地 | 2026-04-22 | 8e9b33a | [260422-hnj-force-override](./quick/260422-hnj-force-override/) |
