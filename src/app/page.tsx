@@ -396,11 +396,11 @@ export default function Dashboard() {
         <div className="space-y-4 pt-4 border-t border-surface-container-high before:content-[''] before:block before:w-full before:h-px before:bg-surface-container-high before:mb-4">
           <div className="space-y-1">
             <Link
-              href="#"
+              href="/docs"
               className="flex items-center space-x-3 px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-headline text-sm font-semibold"
             >
               <span className="material-symbols-outlined">help</span>
-              <span>Support</span>
+              <span>文档</span>
             </Link>
             <Link
               href="/settings"
