@@ -579,17 +579,27 @@ export default function SetupWizard() {
           )}
 
           <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
-            {showBack ? (
-              <button
-                onClick={prevStep}
-                disabled={loading}
-                className="px-6 py-2.5 text-gray-600 hover:text-gray-800 font-medium transition-colors disabled:opacity-50"
-              >
-                上一步
-              </button>
-            ) : (
-              <div />
-            )}
+            <div className="flex gap-2">
+              {showBack && (
+                <button
+                  onClick={prevStep}
+                  disabled={loading}
+                  className="px-4 py-2.5 text-gray-600 hover:text-gray-800 font-medium transition-colors disabled:opacity-50"
+                >
+                  上一步
+                </button>
+              )}
+              {currentStep !== 'done' && (
+                <button
+                  onClick={handleGoToDashboard}
+                  disabled={loading}
+                  className="px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium transition-colors disabled:opacity-50 flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-sm">home</span>
+                  返回首页
+                </button>
+              )}
+            </div>
 
             <div className="flex gap-3">
               {showSkip && (
