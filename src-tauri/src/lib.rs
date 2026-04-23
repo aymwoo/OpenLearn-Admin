@@ -344,7 +344,7 @@ fn remote_callbacks() -> RemoteCallbacks<'static> {
             Cred::default()
         }
     });
-    callbacks.transfer_progress(|progress| {
+    callbacks.transfer_progress(|_progress| {
         true
     });
     callbacks
