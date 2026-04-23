@@ -389,7 +389,7 @@ export default function Dashboard() {
             >
               dashboard
             </span>
-            <span>Dashboard</span>
+            <span>仪表盘</span>
           </Link>
         </div>
 
