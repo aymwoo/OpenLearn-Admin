@@ -195,6 +195,7 @@ export interface WebServiceInfo {
   processStartTime: string;
   aspNetMemory: string;
   aspNetThreadCount: number;
+  dbSize?: string;
 }
 
 /**

@@ -761,26 +761,18 @@ export default function Dashboard() {
 
                 <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-amber-500">start</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">进程开始</p>
-                  </div>
-                  <h4 className="text-[13px] font-bold text-on-surface truncate leading-tight" title={webServiceInfo?.processStartTime}>{webServiceInfo?.processStartTime ?? "-"}</h4>
-                </div>
-
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
                     <span className="material-symbols-outlined text-sm text-rose-500">memory</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">ASP.NET 内存</p>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">内存</p>
                   </div>
-                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.aspNetMemory ?? "-"}</h4>
+                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.aspNetMemory ? `${webServiceInfo.aspNetMemory} MB` : "-"}</h4>
                 </div>
 
                 <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-cyan-500">reorder</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">当前线程</p>
+                    <span className="material-symbols-outlined text-sm text-violet-500">storage</span>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">数据库</p>
                   </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.aspNetThreadCount ?? "-"}</h4>
+                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.dbSize ?? "-"}</h4>
                 </div>
               </div>
             </div>
