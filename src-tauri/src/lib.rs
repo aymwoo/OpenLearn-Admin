@@ -1454,12 +1454,12 @@ fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Re
 }
 
 #[command]
-fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
+fn stop_service(window: Window, state: State<'_, AppState>) -> Result<String, String> {
+    let _ = window.emit("install-progress", "[Web服务] 正在停止服务...".to_string());
     let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
     if let Some(mut child) = child_guard.take() {
         let _ = child.kill();
         let _ = child.wait();
-        let _ = window.emit("install-progress", "[Web服务] 正在停止服务...".to_string());
         
         #[cfg(target_os = "windows")]
         {
@@ -1479,8 +1479,10 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
 
 #[command]
 async fn start_db_service(window: Window) -> Result<String, String> {
+    let _ = window.emit("install-progress", "[数据库] 正在检查服务状态...".to_string());
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = window.emit("install-progress", "此功能仅在 Windows 系统上可用".to_string());
         return Err("此功能仅在 Windows 系统上可用".to_string());
     }
 
@@ -1525,6 +1527,7 @@ async fn start_db_service(window: Window) -> Result<String, String> {
 
 #[command]
 async fn stop_db_service(window: Window) -> Result<String, String> {
+    let _ = window.emit("install-progress", "[数据库] 正在请求停止服务...".to_string());
     #[cfg(not(target_os = "windows"))]
     {
         return Err("此功能仅在 Windows 系统上可用".to_string());
@@ -1688,6 +1691,7 @@ fn is_windows() -> bool {
 
 #[command]
 async fn execute_windows_install(window: Window) -> Result<(), String> {
+    let _ = window.emit("install-progress", "[系统] 准备执行 Windows 安装程序...".to_string());
     #[cfg(not(target_os = "windows"))]
     {
         return Err("此功能仅在 Windows 系统上可用".to_string());
@@ -1744,6 +1748,7 @@ async fn execute_windows_install(window: Window) -> Result<(), String> {
 
 #[command]
 async fn initialize_database(window: Window) -> Result<(), String> {
+    let _ = window.emit("install-progress", "[数据库] 准备初始化数据库...".to_string());
     #[cfg(not(target_os = "windows"))]
     {
         return Err("此功能仅在 Windows 系统上可用".to_string());

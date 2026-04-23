@@ -27,7 +27,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../assets-windows/**/*"
+      "../assets-windows"
     ],
     "windows": {
       "certificateThumbprint": null,
