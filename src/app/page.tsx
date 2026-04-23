@@ -21,6 +21,13 @@ import {
   stopService,
   runSmartPull,
   type WebServiceInfo,
+  executeWindowsInstall,
+  listenInstallProgress,
+  isWindowsHost,
+  initializeDatabase,
+  cloneRepo,
+  startDbService,
+  stopDbService,
 } from "@/lib/git";
 
 export default function Dashboard() {
@@ -51,6 +58,7 @@ export default function Dashboard() {
   );
   const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<DbConnectionStatus | null>(null);
+  const [isWindows, setIsWindows] = useState(false);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
 
@@ -67,6 +75,11 @@ export default function Dashboard() {
   useEffect(() => {
     let mounted = true;
     let unlisten: (() => void) | undefined;
+    let unlistenInstall: (() => void) | undefined;
+
+    isWindowsHost().then(win => {
+      if (mounted) setIsWindows(win);
+    });
 
     const hydrate = async () => {
       const cfg = await loadConfig();
@@ -176,20 +189,26 @@ export default function Dashboard() {
       })
       .catch(() => {});
 
+    listenInstallProgress((log) => {
+      if (mounted) {
+        setTerminalLogs((prev) => [...prev, log].slice(-100));
+        setMessage(log);
+      }
+    }).then(u => unlistenInstall = u);
+
     return () => {
       mounted = false;
       unlisten?.();
+      unlistenInstall?.();
     };
   }, []);
 
   const handleStartService = async () => {
     setLoading(true);
-    setMessage("Starting service...");
     try {
-      const result = await startService(config?.localPath || "");
-      setMessage(`Service started: ${result}`);
+      await startService(config?.localPath || "");
     } catch (err: any) {
-      setMessage(`Failed to start service: ${err.toString()}`);
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
     } finally {
       setLoading(false);
     }
@@ -197,12 +216,105 @@ export default function Dashboard() {
 
   const handleStopService = async () => {
     setLoading(true);
-    setMessage("Stopping service...");
     try {
-      const result = await stopService();
-      setMessage(`Service stopped: ${result}`);
+      await stopService();
     } catch (err: any) {
-      setMessage(`Failed to stop service: ${err.toString()}`);
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleStartDb = async () => {
+    setLoading(true);
+    try {
+      await startDbService();
+    } catch (err: any) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStopDb = async () => {
+    setLoading(true);
+    try {
+      await stopDbService();
+    } catch (err: any) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestartDb = async () => {
+    setLoading(true);
+    try {
+      await stopDbService();
+      await new Promise(r => setTimeout(r, 2000));
+      await startDbService();
+    } catch (err: any) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestartService = async () => {
+    setLoading(true);
+    try {
+      await stopService();
+      await new Promise(r => setTimeout(r, 1000));
+      await startService(config?.localPath || "");
+    } catch (err: any) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWindowsInstall = async () => {
+    setLoading(true);
+    setTerminalLogs([]);
+    setMessage("开始 Windows 一键安装...");
+    try {
+      // 1. 安装核心环境 (SQL Server, .NET, Web Server)
+      await executeWindowsInstall();
+      
+      // 2. 在 GUI 中执行源码克隆 (因为服务器可能没有 Git 环境)
+      if (config?.remoteUrl && config?.localPath) {
+        setTerminalLogs(prev => [...prev, `[SYSTEM] 正在从 ${config.remoteUrl} 克隆源码到 ${config.localPath}...`]);
+        await cloneRepo(config.remoteUrl, config.localPath, config.branch || 'main');
+        setTerminalLogs(prev => [...prev, "[SYSTEM] 源码克隆完成。"]);
+      } else {
+        setTerminalLogs(prev => [...prev, "[WARNING] 未配置 Git 信息，跳过克隆步骤。"]);
+      }
+
+      // 3. 初始化数据库
+      setTerminalLogs(prev => [...prev, "[SYSTEM] 开始初始化数据库..."]);
+      await initializeDatabase();
+      setTerminalLogs(prev => [...prev, "[SYSTEM] 数据库初始化完成。"]);
+      
+      setMessage("一键安装、源码克隆与数据库初始化全部完成！");
+    } catch (err: any) {
+      const errMsg = err.toString();
+      setTerminalLogs(prev => [...prev, `[ERROR] ${errMsg}`]);
+      setMessage(`操作失败: ${errMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncDb = async () => {
+    setLoading(true);
+    setTerminalLogs(prev => [...prev, "[SYSTEM] 开始同步数据库配置..."]);
+    try {
+      await initializeDatabase();
+      setTerminalLogs(prev => [...prev, "[SYSTEM] 数据库配置同步成功。"]);
+      setMessage("数据库同步完成！");
+    } catch (err: any) {
+      const errMsg = err.toString();
+      setTerminalLogs(prev => [...prev, `[ERROR] ${errMsg}`]);
+      setMessage(`同步失败: ${errMsg}`);
     } finally {
       setLoading(false);
     }
@@ -424,6 +536,28 @@ export default function Dashboard() {
               <div
                 className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(1,90,193,0.5)] ${isUpToDate ? "bg-[#34a853]" : "bg-[#fbbc04]"}`}
               ></div>
+              {isWindows && (
+                <div className="flex items-center space-x-2 mr-2">
+                  <button
+                    onClick={handleWindowsInstall}
+                    disabled={loading}
+                    className="flex items-center space-x-2 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg transition-all text-xs font-semibold"
+                    title="重新安装环境"
+                  >
+                    <span className="material-symbols-outlined text-sm">install_desktop</span>
+                    <span>一键安装</span>
+                  </button>
+                  <button
+                    onClick={handleSyncDb}
+                    disabled={loading}
+                    className="flex items-center space-x-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 px-3 py-1.5 rounded-lg transition-all text-xs font-semibold border border-blue-200/50"
+                    title="根据 web.config 初始化数据库"
+                  >
+                    <span className="material-symbols-outlined text-sm">database</span>
+                    <span>同步数据库</span>
+                  </button>
+                </div>
+              )}
               <span className="text-xs font-semibold text-on-surface">
                 {isUpToDate
                   ? isAhead
@@ -433,46 +567,57 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center">
-              <div className="flex items-center justify-center px-3">
-                <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-purple-500' : 'text-rose-500'}`}>
-                  database
-                </span>
+          <div className="flex items-center space-x-4">
+            {isWindows && (
+              <button
+                onClick={handleWindowsInstall}
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-purple-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+              >
+                <span className="material-symbols-outlined text-sm">magic_button</span>
+                <span className="text-sm font-bold">一键安装环境</span>
+              </button>
+            )}
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center">
+                <div className="flex items-center justify-center px-3">
+                  <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-purple-500' : 'text-rose-500'}`}>
+                    database
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 px-2">
+                  <button onClick={handleStartDb} disabled={loading} title="启动数据库服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors">
+                    <span className="material-symbols-outlined text-base">play_arrow</span>
+                  </button>
+                  <button onClick={handleStopDb} disabled={loading} title="停止数据库服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors">
+                    <span className="material-symbols-outlined text-base">stop</span>
+                  </button>
+                  <button onClick={handleRestartDb} disabled={loading} title="重启数据库服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors">
+                    <span className="material-symbols-outlined text-base">refresh</span>
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 px-2">
-                <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-base">play_arrow</span>
-                </button>
-                <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-base">stop</span>
-                </button>
-                <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-base">refresh</span>
-                </button>
-              </div>
-            </div>
 
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
-            <div className="flex items-center">
-              <div className="flex items-center justify-center px-3">
-                <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-blue-500'}`}>
-                  language
-                </span>
+              <div className="flex items-center">
+                <div className="flex items-center justify-center px-3">
+                  <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-blue-500'}`}>
+                    language
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 px-2">
+                  <button onClick={handleStartService} disabled={loading} title="启动 Web 服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors">
+                    <span className="material-symbols-outlined text-base">play_arrow</span>
+                  </button>
+                  <button onClick={handleStopService} disabled={loading} title="停止 Web 服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors">
+                    <span className="material-symbols-outlined text-base">stop</span>
+                  </button>
+                  <button onClick={handleRestartService} disabled={loading} title="重启 Web 服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors">
+                    <span className="material-symbols-outlined text-base">refresh</span>
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 px-2">
-                <button onClick={handleStartService} disabled={loading} title="启动服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-base">play_arrow</span>
-                </button>
-                <button onClick={handleStopService} disabled={loading} title="停止服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-base">stop</span>
-                </button>
-                <button onClick={handleStartService} disabled={loading} title="重启服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-base">refresh</span>
-                </button>
-              </div>
-            </div>
 
             <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
@@ -487,6 +632,7 @@ export default function Dashboard() {
                 </span>
               </Link>
             </div>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-8">
@@ -925,30 +1071,44 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto text-white/70 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-                {message && (
-                  <p>
-                    <span
-                      className={
-                        message.includes("失败") || message.includes("error")
-                          ? "text-[#ff5f56]"
-                          : "text-[#27c93f]"
-                      }
-                    >
-                      [
-                      {message.includes("失败") || message.includes("error")
-                        ? "ERROR"
-                        : "SUCCESS"}
-                      ]
-                    </span>{" "}
-                    {message}
-                  </p>
-                )}
+              <div className="flex-1 overflow-y-auto text-white/70 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent p-2">
+                {terminalLogs.length > 0 ? (
+                  terminalLogs.map((log, i) => (
+                    <p key={i} className="leading-relaxed">
+                      <span className="text-white/30 mr-2">[{new Date().toLocaleTimeString()}]</span>
+                      <span className={
+                        log.toLowerCase().includes("error") || log.includes("错误") 
+                          ? "text-rose-400" 
+                          : log.toLowerCase().includes("warn") || log.includes("警告")
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                      }>
+                        {log}
+                      </span>
+                    </p>
+                  ))
+                ) : (
+                  <>
+                    {message && (
+                      <p>
+                        <span
+                          className={
+                            message.includes("失败") || message.includes("error")
+                              ? "text-[#ff5f56]"
+                              : "text-[#27c93f]"
+                          }
+                        >
+                          [
+                          {message.includes("失败") || message.includes("error")
+                            ? "ERROR"
+                            : "SUCCESS"}
+                          ]
+                        </span>{" "}
+                        {message}
+                      </p>
+                    )}
 
-                {remoteDetails?.changelogSection && (
-                  <div className="mt-2 text-white/50 whitespace-pre-wrap text-xs border-l-2 border-white/20 pl-3">
-                    {remoteDetails.changelogSection}
-                  </div>
+                  </>
                 )}
 
                 <p className="mt-4 text-white">

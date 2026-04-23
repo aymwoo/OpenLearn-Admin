@@ -1399,11 +1399,27 @@ fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Re
         return Err("Service is already running".to_string());
     }
 
-    // Attempt to run npm run dev or a script
-    let mut child = Command::new("bash")
-        .arg("-c")
-        .arg("npm run dev")
-        .current_dir(&path)
+    let mut command = if cfg!(target_os = "windows") {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            let mut cmd = Command::new("cmd");
+            cmd.args(["/C", "assets-windows\\启动.bat"]);
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+            cmd
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new("cmd") // Should not happen but for compilation
+        }
+    } else {
+        let mut cmd = Command::new("bash");
+        cmd.arg("-c").arg("npm run dev");
+        cmd.current_dir(&path);
+        cmd
+    };
+
+    let mut child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -1417,10 +1433,10 @@ fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Re
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
             if let Ok(l) = line {
-                let _ = w1.emit("service-log", l);
+                let _ = w1.emit("install-progress", format!("[Web服务] {}", l));
             }
         }
-        let _ = w1.emit("service-log", "[PROCESS EXITED]".to_string());
+        let _ = w1.emit("install-progress", "[Web服务] 进程已退出".to_string());
     });
 
     let w2 = window.clone();
@@ -1428,7 +1444,7 @@ fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Re
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             if let Ok(l) = line {
-                let _ = w2.emit("service-log", format!("[ERROR] {}", l));
+                let _ = w2.emit("install-progress", format!("[Web服务错误] {}", l));
             }
         }
     });
@@ -1443,9 +1459,92 @@ fn stop_service(state: State<'_, AppState>) -> Result<String, String> {
     if let Some(mut child) = child_guard.take() {
         let _ = child.kill();
         let _ = child.wait();
+        let _ = window.emit("install-progress", "[Web服务] 正在停止服务...".to_string());
+        
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            // Force kill MyWebServer.exe just in case it escaped the batch process
+            let _ = Command::new("taskkill")
+                .args(["/F", "/IM", "MyWebServer.exe", "/T"])
+                .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                .spawn();
+        }
+        
         Ok("Service stopped".to_string())
     } else {
         Err("No service running".to_string())
+    }
+}
+
+#[command]
+async fn start_db_service(window: Window) -> Result<String, String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("此功能仅在 Windows 系统上可用".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = window.emit("install-progress", "[数据库] 正在尝试启动服务...".to_string());
+        
+        let services = ["MSSQL$SQLEXPRESS", "MSSQLSERVER", "MSSQLLocalDB"];
+        let mut last_err = String::new();
+
+        for service in services {
+            let _ = window.emit("install-progress", format!("[数据库] 正在检查服务: {}...", service));
+            let output = Command::new("net")
+                .args(["start", service])
+                .creation_flags(0x08000000)
+                .output();
+
+            match output {
+                Ok(out) if out.status.success() => {
+                    let msg = format!("[数据库] 服务 {} 已成功启动", service);
+                    let _ = window.emit("install-progress", msg.clone());
+                    return Ok(msg);
+                },
+                Ok(out) => {
+                    let err = String::from_utf8_lossy(&out.stderr).to_string();
+                    if err.contains("2182") {
+                         let msg = format!("[数据库] 服务 {} 已经在运行", service);
+                         let _ = window.emit("install-progress", msg.clone());
+                         return Ok(msg);
+                    }
+                    last_err = err;
+                },
+                Err(e) => last_err = e.to_string(),
+            }
+        }
+        let err_msg = format!("[数据库] 启动失败: {}", last_err);
+        let _ = window.emit("install-progress", err_msg.clone());
+        Err(err_msg)
+    }
+}
+
+#[command]
+async fn stop_db_service(window: Window) -> Result<String, String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("此功能仅在 Windows 系统上可用".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = window.emit("install-progress", "[数据库] 正在停止相关服务...".to_string());
+        let services = ["MSSQL$SQLEXPRESS", "MSSQLSERVER", "MSSQLLocalDB"];
+        
+        for service in services {
+            let _ = Command::new("net")
+                .args(["stop", service, "/y"])
+                .creation_flags(0x08000000)
+                .output();
+        }
+        let msg = "[数据库] 停止指令已发送".to_string();
+        let _ = window.emit("install-progress", msg.clone());
+        Ok(msg)
     }
 }
 
@@ -1582,6 +1681,118 @@ fn parse_connection_string(conn_str: &str) -> (String, String) {
     (server, database)
 }
 
+#[command]
+fn is_windows() -> bool {
+    cfg!(target_os = "windows")
+}
+
+#[command]
+async fn execute_windows_install(window: Window) -> Result<(), String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("此功能仅在 Windows 系统上可用".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        
+        let mut child = Command::new("cmd")
+            .args(["/C", "assets-windows\\安装环境.bat"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .spawn()
+            .map_err(|e| format!("无法启动安装脚本: {}", e))?;
+
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
+
+        let window_clone = window.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    let _ = window_clone.emit("install-progress", l);
+                }
+            }
+        });
+
+        let window_clone2 = window.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    let _ = window_clone2.emit("install-progress", format!("Error: {}", l));
+                }
+            }
+        });
+
+        thread::spawn(move || {
+            let status = child.wait();
+            let msg = match status {
+                Ok(s) if s.success() => "安装完成".to_string(),
+                Ok(s) => format!("安装脚本执行失败，退出代码: {}", s.code().unwrap_or(-1)),
+                Err(e) => format!("等待安装脚本结束时出错: {}", e),
+            };
+            let _ = window.emit("install-progress", msg);
+        });
+
+        Ok(())
+    }
+}
+
+#[command]
+async fn initialize_database(window: Window) -> Result<(), String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("此功能仅在 Windows 系统上可用".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        
+        let mut child = Command::new("cmd")
+            .args(["/C", "assets-windows\\初始化数据库.bat"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .spawn()
+            .map_err(|e| format!("无法启动初始化脚本: {}", e))?;
+
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
+
+        let window_clone = window.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    let _ = window_clone.emit("install-progress", format!("[DB] {}", l));
+                }
+            }
+        });
+
+        let window_clone2 = window.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    let _ = window_clone2.emit("install-progress", format!("[DB ERROR] {}", l));
+                }
+            }
+        });
+
+        let status = child.wait().map_err(|e| e.to_string())?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err("数据库初始化脚本执行失败".to_string())
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     setup_graphics_workarounds();
@@ -1604,6 +1815,11 @@ pub fn run() {
             get_database_connection_status,
             start_service,
             stop_service,
+            execute_windows_install,
+            initialize_database,
+            start_db_service,
+            stop_db_service,
+            is_windows,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

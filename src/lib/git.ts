@@ -10,6 +10,7 @@ export interface GitConfig {
   versionFilePath: string;
   changelogFilePath: string;
   webServiceUrl?: string;
+  isWindows?: boolean;
 }
 
 const CONFIG_KEY = 'git-updater-config';
@@ -88,10 +89,33 @@ export interface PullResult {
   remote: VersionDetails;
 }
 
+export async function getDefaultConfig(): Promise<GitConfig> {
+  const isWin = await isWindowsHost();
+  return {
+    ...DEFAULT_GIT_CONFIG,
+    localPath: isWin ? 'assets-windows\\LearnSite' : '',
+  };
+}
+
 export async function loadConfig(): Promise<GitConfig | null> {
   if (typeof window === 'undefined') return null;
   const stored = localStorage.getItem(CONFIG_KEY);
-  return stored ? { ...DEFAULT_GIT_CONFIG, ...JSON.parse(stored) } : null;
+  if (!stored) return null;
+  
+  try {
+    const isWin = await isWindowsHost();
+    const config = JSON.parse(stored);
+    
+    // 如果存储的路径为空且在 Windows 上，应用默认路径
+    if (!config.localPath && isWin) {
+      config.localPath = 'assets-windows\\LearnSite';
+    }
+    
+    return { ...DEFAULT_GIT_CONFIG, ...config };
+  } catch (err) {
+    console.error('Failed to parse git config', err);
+    return null;
+  }
 }
 
 export async function saveConfig(config: GitConfig): Promise<void> {
@@ -248,4 +272,28 @@ export async function getDbConnectionStatus(localPath: string): Promise<DbConnec
       error: String(error),
     };
   }
+}
+
+export async function executeWindowsInstall(): Promise<void> {
+  return await invoke('execute_windows_install');
+}
+
+export async function listenInstallProgress(handler: (log: string) => void): Promise<UnlistenFn> {
+  return listen<string>('install-progress', (event) => handler(event.payload));
+}
+
+export async function isWindowsHost(): Promise<boolean> {
+  return await invoke<boolean>('is_windows');
+}
+
+export async function initializeDatabase(): Promise<void> {
+  return await invoke('initialize_database');
+}
+
+export async function startDbService(): Promise<string> {
+  return await invoke('start_db_service');
+}
+
+export async function stopDbService(): Promise<string> {
+  return await invoke('stop_db_service');
 }

@@ -8,6 +8,7 @@ import {
   type GitConfig,
   saveConfig,
   loadConfig,
+  getDefaultConfig,
   cloneRepo,
   getRemoteStatus,
   getBranches,
@@ -66,9 +67,13 @@ export default function SetupWizard() {
   const abortRef = useRef(false);
 
   useEffect(() => {
+    // 首先获取平台相关的默认配置
+    getDefaultConfig().then(setConfig);
+    
+    // 然后尝试加载已保存的配置
     loadConfig().then((cfg) => {
       if (cfg) {
-        setConfig({ ...DEFAULT_GIT_CONFIG, ...cfg });
+        setConfig(cfg);
       }
     });
   }, []);
