@@ -182,7 +182,7 @@ export default function DocsPage() {
             <ul>
               <li><strong>Start Service</strong> - 启动 Web 服务</li>
               <li><strong>Stop Service</strong> - 停止 Web 服务</li>
-              <li><strong>Settings</strong> - 打开设置页面</li>
+              <li><strong>系统设置</strong> - 打开设置页面</li>
             </ul>
             
             <h2>默认配置</h2>

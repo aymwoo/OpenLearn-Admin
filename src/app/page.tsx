@@ -406,8 +406,8 @@ export default function Dashboard() {
               href="/settings"
               className="flex items-center space-x-3 px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-[#004394] hover:bg-[#f2f4f6] dark:hover:bg-slate-800 rounded-xl transition-all font-headline text-sm font-semibold"
             >
-              <span className="material-symbols-outlined">settings</span>
-              <span>Settings</span>
+<span className="material-symbols-outlined">settings</span>
+            <span>系统设置</span>
             </Link>
           </div>
         </div>
