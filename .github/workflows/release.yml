@@ -81,6 +81,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          args: "--bundle nsis"
           # 自动触发发布逻辑
           tagName: ${{ github.ref_name }}
           releaseName: "Release ${{ github.ref_name }}"
