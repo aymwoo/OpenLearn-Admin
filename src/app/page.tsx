@@ -45,6 +45,8 @@ export default function Dashboard() {
   const [webServiceInfo, setWebServiceInfo] = useState<WebServiceInfo | null>(
     null
   );
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [modalBackupToggle, setModalBackupToggle] = useState(true);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
 
@@ -270,13 +272,23 @@ export default function Dashboard() {
   const handlePull = async () => {
     if (!config) return;
 
+    // 如果检测到本地有领先提交 (Ahead)，弹出风险提示 Modal
+    if (remoteStatus && remoteStatus.ahead > 0) {
+      setModalBackupToggle(config.backupBeforePull);
+      setShowConflictModal(true);
+      return;
+    }
+
+    startSmartPull(config);
+  };
+
+  const startSmartPull = async (targetConfig: GitConfig) => {
     setLoading(true);
     setMessage("");
     setProgress({ stage: "pulling", percent: 5, label: "开始更新..." });
 
     try {
-      await runSmartPull(config);
-      // 结果现在通过 listenPullProgress 异步处理
+      await runSmartPull(targetConfig);
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : String(error);
@@ -288,6 +300,20 @@ export default function Dashboard() {
       }));
       setLoading(false);
     }
+  };
+
+  const confirmForcePull = () => {
+    if (!config) return;
+    setShowConflictModal(false);
+    
+    // 创建一个临时的 config 对象，应用 Modal 中的备份选项，并强制开启 forcePush
+    const forceConfig: GitConfig = {
+      ...config,
+      backupBeforePull: modalBackupToggle,
+      forcePush: true,
+    };
+    
+    startSmartPull(forceConfig);
   };
 
   const refreshData = async () => {
@@ -888,6 +914,62 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Conflict Warning Modal */}
+      {showConflictModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+            <div className="p-8">
+              <div className="flex items-center space-x-3 text-amber-500 mb-6">
+                <span className="material-symbols-outlined text-4xl">warning</span>
+                <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">发现版本冲突</h3>
+              </div>
+              
+              <div className="space-y-4 mb-8">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                  检测到本地存在 <span className="font-bold text-[#004394] dark:text-blue-400">{remoteStatus?.ahead}</span> 个未提交的更改，而远端已有更新。
+                </p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                    ⚠️ 风险提示：继续更新将使用远端代码**完全覆盖**本地修改。本地领先的提交将被丢弃。
+                  </p>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-500 italic">
+                  提示：本地未跟踪（Untracked）的新文件将被保留。
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl mb-8">
+                <div className="flex items-center space-x-2">
+                  <span className="material-symbols-outlined text-slate-400">inventory_2</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">更新前备份本地仓库</span>
+                </div>
+                <button
+                  onClick={() => setModalBackupToggle(!modalBackupToggle)}
+                  className={`w-12 h-6 rounded-full transition-colors ${modalBackupToggle ? 'bg-[#004394]' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${modalBackupToggle ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowConflictModal(false)}
+                  className="flex-1 py-4 px-6 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl font-bold transition-all active:scale-95"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmForcePull}
+                  className="flex-[1.5] py-4 px-6 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                >
+                  确定强制覆盖
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

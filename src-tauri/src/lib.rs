@@ -511,7 +511,7 @@ fn fast_forward(repo: &Repository, branch: &str, force: bool) -> Result<(), Stri
         repo.set_head(&reference_name).map_err(|e| format!("切换分支头失败: {e}"))?;
         
         let mut builder = CheckoutBuilder::default();
-        builder.force().remove_untracked(true);
+        builder.force();
         repo.checkout_head(Some(&mut builder)).map_err(|e| format!("强制覆盖工作区失败: {e}"))?;
         
         return Ok(());
@@ -536,7 +536,7 @@ fn fast_forward(repo: &Repository, branch: &str, force: bool) -> Result<(), Stri
         .map_err(|e| format!("切换分支头失败: {e}"))?;
     let mut builder = CheckoutBuilder::default();
     if force {
-        builder.force().remove_untracked(true);
+        builder.force();
     }
     repo.checkout_head(Some(&mut builder))
         .map_err(|e| format!("更新工作区失败: {e}"))
