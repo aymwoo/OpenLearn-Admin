@@ -16,7 +16,7 @@ const CONFIG_KEY = 'git-updater-config';
 
 export const DEFAULT_GIT_CONFIG: GitConfig = {
   remoteUrl: '',
-  localPath: '',
+  localPath: 'C:\\inetpub\\wwwroot',
   branch: 'main',
   forcePush: false,
   backupBeforePull: true,
