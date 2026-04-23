@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-23 - Completed quick task 260423-pdn: 无法连接到服务器的时候进行提示处理
+2026-04-23 - Completed quick task 260423-pil: 根据本地路径根目录的webconfig中的数据库连接字符串获取数据库连接信息,展示数据库连接状态在顶部区域
 
 ---
 
@@ -15,6 +15,7 @@
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260423-pil-webconfig | 根据本地路径根目录的webconfig中的数据库连接字符串获取数据库连接信息,展示数据库连接状态在顶部区域 | 2026-04-23 | 61942c7 | [260423-pil-webconfig](./quick/260423-pil-webconfig/) |
 | 260423-pdn- | 无法连接到服务器的时候进行提示处理 | 2026-04-23 | 0c1c782 | [260423-pdn-](./quick/260423-pdn-/) |
 | 260423-opd-pull-git-pull | 在克隆或者pull的时候,我希望能有像真正git命令一样的进度展示,比如已pull数据的百分比 | 2026-04-23 | a9e31fc | [260423-opd-pull-git-pull](./quick/260423-opd-pull-git-pull/) |
 | 260423-n3s-1-2-https-gitee-com-nylon26-openlearnsit | 本地仓库的路径支持两种方式的设置,1是通过弹出的文件选择框进入输入,2是手动输入路径,默认的远程仓库地址设置为https://gitee.com/nylon26/openlearnsite.git | 2026-04-23 | d1bf87d | [260423-n3s-1-2-https-gitee-com-nylon26-openlearnsit](./quick/260423-n3s-1-2-https-gitee-com-nylon26-openlearnsit/) |
