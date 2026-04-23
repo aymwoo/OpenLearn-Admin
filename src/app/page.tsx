@@ -434,7 +434,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <div className="flex items-center rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
+            <div className="flex items-center overflow-hidden">
               <div className="flex items-center justify-center px-3 py-1.5 border-b-2 border-blue-500">
                 <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
                   database
@@ -453,7 +453,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center rounded-lg border border-purple-200 dark:border-purple-800 overflow-hidden">
+            <div className="flex items-center overflow-hidden">
               <div className="flex items-center justify-center px-3 py-1.5 border-b-2 border-purple-500">
                 <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
                   language
