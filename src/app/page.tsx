@@ -434,7 +434,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
               <span className={`material-symbols-outlined ${dbStatus?.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
                 {dbStatus?.connected ? 'dns' : 'dns'}
               </span>
@@ -449,7 +449,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center justify-center space-x-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
               <span className={`material-symbols-outlined ${wsConnectionError ? 'text-rose-500' : 'text-emerald-500'}`}>
                 {wsConnectionError ? 'cloud_off' : 'cloud_done'}
               </span>
