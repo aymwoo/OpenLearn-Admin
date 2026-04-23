@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [webServiceInfo, setWebServiceInfo] = useState<WebServiceInfo | null>(
     null
   );
+  const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
 
@@ -237,8 +238,13 @@ export default function Dashboard() {
         const info = await getWebServiceInfo(configRef.current.webServiceUrl);
         if (mounted) {
           setWebServiceInfo(info);
+          setWsConnectionError(null);
         }
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (mounted) {
+          setWsConnectionError(errMsg);
+        }
         console.error("Failed to get web service info:", err);
       }
     };
@@ -668,6 +674,28 @@ export default function Dashboard() {
             </div>
 
             {/* Row 1.5: Web Service Business Info */}
+            {wsConnectionError ? (
+              <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-amber-500">warning</span>
+                    <div>
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">无法连接到 Web 服务</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">请检查服务是否启动，3秒后自动重试...</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { 
+                      setWsConnectionError(null); 
+                      setTimeout(() => getWebServiceInfo(configRef.current?.webServiceUrl || '').then(setWebServiceInfo).catch(() => {}), 1000);
+                    }}
+                    className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                  >
+                    重试
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
               <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
                 <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -727,6 +755,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Row 2: Metrics */}
             <div>
