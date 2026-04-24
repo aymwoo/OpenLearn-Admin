@@ -62,10 +62,15 @@ export default function Dashboard() {
     configRef.current = config;
   }, [config]);
 
-  const applyDashboardData = (data: DashboardData) => {
+const applyDashboardData = (data: DashboardData) => {
     setStatus(data.status);
     setLocalDetails(data.local);
     setRemoteDetails(data.remote);
+    
+    if (!data.local.version && configRef.current) {
+      setProgress({ stage: "idle", percent: 10, label: "本地仓库未初始化，后台自动克隆中..." });
+      runSmartPull(configRef.current).catch(() => {});
+    }
   };
 
   useEffect(() => {

@@ -45,6 +45,7 @@ export interface VersionDetails {
 export interface FetchProgress {
   stage:
     | 'idle'
+    | 'cloning'
     | 'checking'
     | 'reading_remote_version'
     | 'reading_remote_changelog'
