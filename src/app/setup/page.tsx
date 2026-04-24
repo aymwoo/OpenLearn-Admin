@@ -6,12 +6,14 @@ import { open } from '@tauri-apps/plugin-dialog';
 import {
   DEFAULT_GIT_CONFIG,
   type GitConfig,
+  type FetchProgress,
   saveConfig,
   loadConfig,
   getDefaultConfig,
-  cloneRepo,
   getRemoteStatus,
   getBranches,
+  runSmartPull,
+  listenPullProgress,
 } from '@/lib/git';
 
 type Step = 'welcome' | 'remote' | 'local' | 'clone' | 'files' | 'service' | 'done';
@@ -64,6 +66,7 @@ export default function SetupWizard() {
   const [branches, setBranches] = useState<string[]>(['main', 'master']);
   const [skipClone, setSkipClone] = useState(false);
   const [localPathExists, setLocalPathExists] = useState(false);
+  const [progress, setProgress] = useState<FetchProgress>({ stage: 'idle', percent: 0, label: '' });
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -136,36 +139,41 @@ export default function SetupWizard() {
     }
   };
 
-  const handleClone = async () => {
-    if (!config.remoteUrl || !config.localPath) {
-      setError('缺少远端仓库地址或本地路径');
-      return;
+useEffect(() => {
+    if (currentStep === 'clone') {
+      const unlisten = listenPullProgress((progress) => {
+        setCloneProgress(progress.label);
+        setProgress({ stage: progress.stage, percent: progress.percent, label: progress.label });
+        
+        if (progress.stage === 'done' && progress.result) {
+          setTimeout(() => nextStep(), 500);
+        } else if (progress.stage === 'error') {
+          setError(progress.label);
+          setLoading(false);
+        }
+      });
+      
+      return () => {
+        unlisten.then(fn => fn());
+      };
     }
-    setLoading(true);
-    setError('');
-    setCloneProgress('正在克隆仓库...');
+  }, [currentStep]);
 
-    try {
-      await cloneRepo(config.remoteUrl, config.localPath, config.branch || 'main');
-      if (abortRef.current) return;
-
-      setCloneProgress('克隆完成，正在获取分支列表...');
-      const branchList = await getBranches(config.localPath);
-      setBranches(branchList);
-      if (!config.branch || !branchList.includes(config.branch)) {
-        setConfig((c) => ({ ...c, branch: branchList[0] || 'main' }));
-      }
-
-      setCloneProgress('');
-      nextStep();
-    } catch (err) {
-      if (abortRef.current) return;
-      setError(err instanceof Error ? err.message : String(err));
-      setCloneProgress('');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (currentStep === 'clone' && !loading) {
+      const doClone = async () => {
+        setLoading(true);
+        setError('');
+        setCloneProgress('正在准备克隆...');
+        try {
+          await runSmartPull(config);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      };
+      doClone();
     }
-  };
+  }, [currentStep]);
 
   const handleSkipClone = () => {
     setSkipClone(true);
@@ -540,7 +548,6 @@ export default function SetupWizard() {
         await handleCheckLocalPath();
         break;
       case 'clone':
-        await handleClone();
         break;
       case 'files':
         nextStep();
