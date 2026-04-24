@@ -586,14 +586,14 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1 px-2">
-                  <button onClick={handleStartDb} disabled={loading} title="启动数据库服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">play_arrow</span>
+                  <button onClick={handleStartDb} aria-label="启动数据库服务" disabled={loading} title="启动数据库服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors focus-visible:ring-2 focus:outline-none">
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">play_arrow</span>
                   </button>
-                  <button onClick={handleStopDb} disabled={loading} title="停止数据库服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">stop</span>
+                  <button onClick={handleStopDb} aria-label="停止数据库服务" disabled={loading} title="停止数据库服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors focus-visible:ring-2 focus:outline-none">
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">stop</span>
                   </button>
-                  <button onClick={handleRestartDb} disabled={loading} title="重启数据库服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">refresh</span>
+                  <button onClick={handleRestartDb} aria-label="重启数据库服务" disabled={loading} title="重启数据库服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors focus-visible:ring-2 focus:outline-none">
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
                   </button>
                 </div>
               </div>
@@ -607,14 +607,14 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1 px-2">
-                  <button onClick={handleStartService} disabled={loading} title="启动 Web 服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">play_arrow</span>
+                  <button onClick={handleStartService} aria-label="启动 Web 服务" disabled={loading} title="启动 Web 服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors focus-visible:ring-2 focus:outline-none">
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">play_arrow</span>
                   </button>
-                  <button onClick={handleStopService} disabled={loading} title="停止 Web 服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">stop</span>
+                  <button onClick={handleStopService} aria-label="停止 Web 服务" disabled={loading} title="停止 Web 服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors focus-visible:ring-2 focus:outline-none">
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">stop</span>
                   </button>
-                  <button onClick={handleRestartService} disabled={loading} title="重启 Web 服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">refresh</span>
+                  <button onClick={handleRestartService} aria-label="重启 Web 服务" disabled={loading} title="重启 Web 服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors focus-visible:ring-2 focus:outline-none">
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
                   </button>
                 </div>
               </div>
@@ -667,8 +667,9 @@ export default function Dashboard() {
                   </div>
                   <button
                     onClick={handlePull}
+                    aria-label="更新并同步系统代码仓库"
                     disabled={loading || isUpToDate}
-                    className={`relative w-32 h-32 flex items-center justify-center shrink-0 ml-4 group transition-all rounded-full ${!isUpToDate && !loading ? "hover:scale-105 active:scale-95 cursor-pointer" : "cursor-default"}`}
+                    className={`relative w-32 h-32 flex items-center justify-center shrink-0 ml-4 group transition-all rounded-full focus-visible:ring-2 focus:outline-none ${!isUpToDate && !loading ? "hover:scale-105 active:scale-95 cursor-pointer" : "cursor-default"}`}
                   >
                     <svg
                       className="w-full h-full transform -rotate-90 absolute top-0 left-0"
