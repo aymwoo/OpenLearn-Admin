@@ -401,7 +401,7 @@ export default function Dashboard() {
         <div className="flex items-center px-2 py-4">
           <div>
             <h1 className="text-xl font-black text-[#004394] dark:text-blue-500 font-headline tracking-tight">
-              OpenLearnsite
+              OpenLearn Manager
             </h1>
             <p className="text-xs text-on-surface-variant font-label">
               v4.2.1 Stable

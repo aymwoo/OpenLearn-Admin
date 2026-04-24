@@ -23,7 +23,7 @@ interface StepInfo {
 
 const STEP_INFO: Record<Step, StepInfo> = {
   welcome: {
-    title: '欢迎使用 OpenLearn Admin',
+    title: '欢迎使用 OpenLearn Manager',
     description: '让我们开始配置您的系统',
   },
   remote: {

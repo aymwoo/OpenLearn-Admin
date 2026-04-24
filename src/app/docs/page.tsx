@@ -100,7 +100,7 @@ export default function DocsPage() {
               <span className="material-symbols-outlined text-on-primary text-lg">school</span>
             </div>
             <h1 className="text-xl font-headline font-bold tracking-tight text-[#004394] dark:text-blue-400">
-              OpenLearn
+              OpenLearn Manager
             </h1>
           </div>
         </div>
@@ -176,10 +176,10 @@ export default function DocsPage() {
           <div className="max-w-5xl mx-auto space-y-8">
             <div className="text-center space-y-3">
               <h1 className="text-4xl font-headline font-bold tracking-tight text-[#004394] dark:text-blue-400">
-                OpenLearn Admin
+                OpenLearn Manager
               </h1>
               <p className="text-xl text-on-surface-variant max-w-2xl mx-auto">
-                现代化的一站式管理系统，简化 OpenLearn 平台的运维工作
+                现代化的一站式管理系统，简化 OpenLearn Manager 平台的运维工作
               </p>
             </div>
 
@@ -191,7 +191,7 @@ export default function DocsPage() {
                 <div>
                   <h2 className="font-headline font-bold text-on-surface text-lg mb-2">系统概述</h2>
                   <p className="text-on-surface-variant leading-relaxed">
-                    OpenLearn Admin 是一款专为教育平台设计的桌面管理工具，帮助管理员轻松完成版本更新监控、数据库连接管理、Web 服务状态跟踪以及系统配置管理等核心运维任务。通过直观的可视化界面，即使是非技术背景的管理员也能快速上手，实现对 OpenLearn 系统的全面掌控。
+                    OpenLearn Manager 是一款专为教育平台设计的桌面管理工具，帮助管理员轻松完成版本更新监控、数据库连接管理、Web 服务状态跟踪以及系统配置管理等核心运维任务。通过直观的可视化界面，即使是非技术背景的管理员也能快速上手，实现对 OpenLearn Manager 系统的全面掌控。
                   </p>
                 </div>
               </div>
@@ -550,7 +550,7 @@ export default function DocsPage() {
             </div>
 
             <footer className="text-center py-8 text-on-surface-variant text-sm">
-              <p>OpenLearn Admin v4.2.1 · Built with Next.js · © 2024 OpenLearn Team</p>
+              <p>OpenLearn Manager v4.2.1 · Built with Next.js · © 2024 OpenLearn Manager Team</p>
             </footer>
           </div>
         </div>

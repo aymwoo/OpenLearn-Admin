@@ -8,7 +8,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "OpenLearn Admin",
+  title: "OpenLearn Manager",
   description: "Modern Admin Dashboard for OpenLearn",
 };
 
