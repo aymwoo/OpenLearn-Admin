@@ -1,6 +1,4 @@
 use std::{fs, path::Path};
-use std::process::{Command, Stdio};
-use std::io::{BufRead, BufReader};
 use std::thread;
 use std::sync::Mutex;
 
@@ -15,7 +13,6 @@ use std::env;
 use tauri::{command, Emitter, State, Window};
 
 struct AppState {
-    child_process: Mutex<Option<std::process::Child>>,
     system: Mutex<System>,
 }
 
@@ -1295,181 +1292,21 @@ fn setup_graphics_workarounds() {
 }
 
 #[command]
-fn start_service(window: Window, state: State<'_, AppState>, path: String) -> Result<String, String> {
-    let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
-    if child_guard.is_some() {
-        return Err("Service is already running".to_string());
-    }
-
-    let mut command = if cfg!(target_os = "windows") {
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            let mut cmd = Command::new("cmd");
-            cmd.args(["/C", "assets-windows\\启动.bat"]);
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-            cmd
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            Command::new("cmd") // Should not happen but for compilation
-        }
-    } else {
-        let mut cmd = Command::new("bash");
-        cmd.arg("-c").arg("npm run dev");
-        cmd.current_dir(&path);
-        cmd
-    };
-
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start service: {}", e))?;
-
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
-    
-    let w1 = window.clone();
-    thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines() {
-            if let Ok(l) = line {
-                let _ = w1.emit("install-progress", format!("[Web服务] {}", l));
-            }
-        }
-        let _ = w1.emit("install-progress", "[Web服务] 进程已退出".to_string());
-    });
-
-    let w2 = window.clone();
-    thread::spawn(move || {
-        let reader = BufReader::new(stderr);
-        for line in reader.lines() {
-            if let Ok(l) = line {
-                let _ = w2.emit("install-progress", format!("[Web服务错误] {}", l));
-            }
-        }
-    });
-
-    *child_guard = Some(child);
-    Ok("Service started".to_string())
-}
-
-#[command]
-fn stop_service(window: Window, state: State<'_, AppState>) -> Result<String, String> {
-    let _ = window.emit("install-progress", "[Web服务] 正在停止服务...".to_string());
-    let mut child_guard = state.child_process.lock().map_err(|e| e.to_string())?;
-    if let Some(mut child) = child_guard.take() {
-        let _ = child.kill();
-        let _ = child.wait();
-        
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            // Force kill MyWebServer.exe just in case it escaped the batch process
-            let _ = Command::new("taskkill")
-                .args(["/F", "/IM", "MyWebServer.exe", "/T"])
-                .creation_flags(0x08000000) // CREATE_NO_WINDOW
-                .spawn();
-        }
-        
-        Ok("Service stopped".to_string())
-    } else {
-        Err("No service running".to_string())
-    }
-}
-
-#[command]
-async fn start_db_service(window: Window) -> Result<String, String> {
-    let _ = window.emit("install-progress", "[数据库] 正在检查服务状态...".to_string());
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window.emit("install-progress", "此功能仅在 Windows 系统上可用".to_string());
-        return Err("此功能仅在 Windows 系统上可用".to_string());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = window.emit("install-progress", "[数据库] 正在尝试启动服务...".to_string());
-        
-        let services = ["MSSQL$SQLEXPRESS", "MSSQLSERVER", "MSSQLLocalDB"];
-        let mut last_err = String::new();
-
-        for service in services {
-            let _ = window.emit("install-progress", format!("[数据库] 正在检查服务: {}...", service));
-            let output = Command::new("net")
-                .args(["start", service])
-                .creation_flags(0x08000000)
-                .output();
-
-            match output {
-                Ok(out) if out.status.success() => {
-                    let msg = format!("[数据库] 服务 {} 已成功启动", service);
-                    let _ = window.emit("install-progress", msg.clone());
-                    return Ok(msg);
-                },
-                Ok(out) => {
-                    let err = String::from_utf8_lossy(&out.stderr).to_string();
-                    if err.contains("2182") {
-                         let msg = format!("[数据库] 服务 {} 已经在运行", service);
-                         let _ = window.emit("install-progress", msg.clone());
-                         return Ok(msg);
-                    }
-                    last_err = err;
-                },
-                Err(e) => last_err = e.to_string(),
-            }
-        }
-        let err_msg = format!("[数据库] 启动失败: {}", last_err);
-        let _ = window.emit("install-progress", err_msg.clone());
-        Err(err_msg)
-    }
-}
-
-#[command]
-async fn stop_db_service(window: Window) -> Result<String, String> {
-    let _ = window.emit("install-progress", "[数据库] 正在请求停止服务...".to_string());
-    #[cfg(not(target_os = "windows"))]
-    {
-        return Err("此功能仅在 Windows 系统上可用".to_string());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = window.emit("install-progress", "[数据库] 正在停止相关服务...".to_string());
-        let services = ["MSSQL$SQLEXPRESS", "MSSQLSERVER", "MSSQLLocalDB"];
-        
-        for service in services {
-            let _ = Command::new("net")
-                .args(["stop", service, "/y"])
-                .creation_flags(0x08000000)
-                .output();
-        }
-        let msg = "[数据库] 停止指令已发送".to_string();
-        let _ = window.emit("install-progress", msg.clone());
-        Ok(msg)
-    }
-}
-
-#[command]
-async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
+async fn get_web_service_info(url: String) -> Option<WebServiceInfo> {
     let client = reqwest::Client::new();
     let target_url = format!("{}/api/SiteStats.ashx", url.trim_end_matches('/'));
     
-    let res = client.get(target_url)
+    let res = match client.get(target_url)
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
-        .map_err(|e| format!("无法连接到 Web 服务: {}", e))?;
+    {
+        Ok(r) => r,
+        Err(_) => return None,
+    };
         
-    if res.status().is_server_error() {
-        return Err(format!("Web 服务暂时不可用 (HTTP {})", res.status()));
-    }
-    
     if !res.status().is_success() {
-        return Err(format!("HTTP 状态码错误: {}", res.status()));
+        return None;
     }
     
     #[derive(Deserialize)]
@@ -1487,12 +1324,15 @@ async fn get_web_service_info(url: String) -> Result<WebServiceInfo, String> {
         db_size: Option<String>,
     }
     
-    let raw: SiteStatsRaw = res.json().await.map_err(|e| format!("解析数据失败: {}", e))?;
+    let raw: SiteStatsRaw = match res.json().await {
+        Ok(r) => r,
+        Err(_) => return None,
+    };
     
     let uptime_str = raw.uptime.unwrap_or_default();
     let start_time_str = raw.start_time.unwrap_or_default();
     
-    Ok(WebServiceInfo {
+    Some(WebServiceInfo {
         student_count: raw.students.unwrap_or(0),
         lesson_count: raw.courses.unwrap_or(0),
         work_count: raw.works.unwrap_or(0),
@@ -1705,7 +1545,6 @@ pub fn run() {
     setup_graphics_workarounds();
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
-            child_process: Mutex::new(None),
             system: Mutex::new(System::new_all()),
         })
         .plugin(tauri_plugin_dialog::init())
@@ -1720,12 +1559,8 @@ pub fn run() {
             get_system_info,
             get_web_service_info,
             get_database_connection_status,
-            start_service,
-            stop_service,
             execute_windows_install,
             initialize_database,
-            start_db_service,
-            stop_db_service,
             is_windows,
         ])
         .setup(|app| {

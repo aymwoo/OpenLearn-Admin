@@ -17,8 +17,6 @@ import {
   getWebServiceInfo,
   listenPullProgress,
   loadConfig,
-  startService,
-  stopService,
   runSmartPull,
   type WebServiceInfo,
   executeWindowsInstall,
@@ -26,8 +24,6 @@ import {
   isWindowsHost,
   initializeDatabase,
   cloneRepo,
-  startDbService,
-  stopDbService,
 } from "@/lib/git";
 
 export default function Dashboard() {
@@ -203,75 +199,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  const handleStartService = async () => {
-    setLoading(true);
-    try {
-      await startService(config?.localPath || "");
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopService = async () => {
-    setLoading(true);
-    try {
-      await stopService();
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  const handleStartDb = async () => {
-    setLoading(true);
-    try {
-      await startDbService();
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopDb = async () => {
-    setLoading(true);
-    try {
-      await stopDbService();
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRestartDb = async () => {
-    setLoading(true);
-    try {
-      await stopDbService();
-      await new Promise(r => setTimeout(r, 2000));
-      await startDbService();
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRestartService = async () => {
-    setLoading(true);
-    try {
-      await stopService();
-      await new Promise(r => setTimeout(r, 1000));
-      await startService(config?.localPath || "");
-    } catch (err: any) {
-      setTerminalLogs(prev => [...prev, `[ERROR] ${err.toString()}`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleWindowsInstall = async () => {
     setLoading(true);
     setTerminalLogs([]);
@@ -349,22 +276,14 @@ export default function Dashboard() {
 
     const fetchWSInfo = async () => {
       if (!configRef.current?.webServiceUrl) return;
-      try {
-        const info = await getWebServiceInfo(configRef.current.webServiceUrl);
-        if (mounted) {
-          if (info) {
-            setWebServiceInfo(info);
-            setWsConnectionError(null);
-          } else {
-            setWsConnectionError('服务暂时不可用');
-          }
+      const info = await getWebServiceInfo(configRef.current.webServiceUrl);
+      if (mounted) {
+        if (info) {
+          setWebServiceInfo(info);
+          setWsConnectionError(null);
+        } else {
+          setWsConnectionError('服务暂时不可用，请检查服务是否启动');
         }
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        if (mounted) {
-          setWsConnectionError(errMsg);
-        }
-        console.error("Failed to get web service info:", err);
       }
     };
 
@@ -585,16 +504,10 @@ export default function Dashboard() {
                     database
                   </span>
                 </div>
-                <div className="flex items-center gap-1 px-2">
-                  <button onClick={handleStartDb} disabled={loading} title="启动数据库服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">play_arrow</span>
-                  </button>
-                  <button onClick={handleStopDb} disabled={loading} title="停止数据库服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">stop</span>
-                  </button>
-                  <button onClick={handleRestartDb} disabled={loading} title="重启数据库服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">refresh</span>
-                  </button>
+                <div className="flex items-center px-2">
+                  <span className={`text-xs font-medium ${dbStatus?.connected ? 'text-purple-600' : 'text-rose-600'}`}>
+                    {dbStatus?.connected ? '已连接' : '未连接'}
+                  </span>
                 </div>
               </div>
 
@@ -606,22 +519,16 @@ export default function Dashboard() {
                     language
                   </span>
                 </div>
-                <div className="flex items-center gap-1 px-2">
-                  <button onClick={handleStartService} disabled={loading} title="启动 Web 服务" className="p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">play_arrow</span>
-                  </button>
-                  <button onClick={handleStopService} disabled={loading} title="停止 Web 服务" className="p-1.5 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">stop</span>
-                  </button>
-                  <button onClick={handleRestartService} disabled={loading} title="重启 Web 服务" className="p-1.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded flex items-center justify-center transition-colors">
-                    <span className="material-symbols-outlined text-base">refresh</span>
-                  </button>
+                <div className="flex items-center px-2">
+                  <span className={`text-xs font-medium ${wsConnectionError ? 'text-rose-600' : 'text-blue-600'}`}>
+                    {wsConnectionError ? '未连接' : '运行中'}
+                  </span>
                 </div>
               </div>
 
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+             <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
-            <Link
+             <Link
                 href="/settings"
                 className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Settings"
