@@ -17,6 +17,7 @@ use tauri::{command, Emitter, State, Window};
 struct AppState {
     child_process: Mutex<Option<std::process::Child>>,
     system: Mutex<System>,
+    disks: Mutex<Disks>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -33,9 +34,11 @@ struct SystemInfo {
 #[command]
 fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
     let mut sys = state.system.lock().map_err(|e| format!("锁错误: {}", e))?;
-    sys.refresh_all();
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
 
-    let disks = Disks::new_with_refreshed_list();
+    let mut disks = state.disks.lock().map_err(|e| format!("锁错误: {}", e))?;
+    disks.refresh(true);
     let mut disk_total = 0;
     let mut disk_available = 0;
     for disk in disks.list() {
@@ -1707,6 +1710,7 @@ pub fn run() {
         .manage(AppState { 
             child_process: Mutex::new(None),
             system: Mutex::new(System::new_all()),
+            disks: Mutex::new(Disks::new_with_refreshed_list()),
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
