@@ -275,11 +275,11 @@ export async function getDbConnectionStatus(localPath: string): Promise<DbConnec
 }
 
 export async function executeWindowsInstall(): Promise<void> {
-  return await invoke('execute_windows_install');
+  throw new Error('Windows 一键安装功能已移除，请手动安装环境');
 }
 
 export async function listenInstallProgress(handler: (log: string) => void): Promise<UnlistenFn> {
-  return listen<string>('install-progress', (event) => handler(event.payload));
+  return () => {};
 }
 
 export async function isWindowsHost(): Promise<boolean> {
@@ -287,7 +287,7 @@ export async function isWindowsHost(): Promise<boolean> {
 }
 
 export async function initializeDatabase(): Promise<void> {
-  return await invoke('initialize_database');
+  throw new Error('数据库初始化功能已移除，请在 SQL Server Management Studio 中手动操作');
 }
 
 export async function startDbService(): Promise<string> {

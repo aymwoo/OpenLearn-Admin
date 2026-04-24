@@ -19,10 +19,7 @@ import {
   loadConfig,
   runSmartPull,
   type WebServiceInfo,
-  executeWindowsInstall,
-  listenInstallProgress,
   isWindowsHost,
-  initializeDatabase,
   cloneRepo,
 } from "@/lib/git";
 
@@ -76,7 +73,6 @@ const applyDashboardData = (data: DashboardData) => {
   useEffect(() => {
     let mounted = true;
     let unlisten: (() => void) | undefined;
-    let unlistenInstall: (() => void) | undefined;
 
     isWindowsHost().then(win => {
       if (mounted) setIsWindows(win);
@@ -190,67 +186,11 @@ const applyDashboardData = (data: DashboardData) => {
       })
       .catch(() => {});
 
-    listenInstallProgress((log) => {
-      if (mounted) {
-        setTerminalLogs((prev) => [...prev, log].slice(-100));
-        setMessage(log);
-      }
-    }).then(u => unlistenInstall = u);
-
     return () => {
       mounted = false;
       unlisten?.();
-      unlistenInstall?.();
     };
   }, []);
-
-  const handleWindowsInstall = async () => {
-    setLoading(true);
-    setTerminalLogs([]);
-    setMessage("开始 Windows 一键安装...");
-    try {
-      // 1. 安装核心环境 (SQL Server, .NET, Web Server)
-      await executeWindowsInstall();
-      
-      // 2. 在 GUI 中执行源码克隆 (因为服务器可能没有 Git 环境)
-      if (config?.remoteUrl && config?.localPath) {
-        setTerminalLogs(prev => [...prev, `[SYSTEM] 正在从 ${config.remoteUrl} 克隆源码到 ${config.localPath}...`]);
-        await cloneRepo(config.remoteUrl, config.localPath, config.branch || 'main');
-        setTerminalLogs(prev => [...prev, "[SYSTEM] 源码克隆完成。"]);
-      } else {
-        setTerminalLogs(prev => [...prev, "[WARNING] 未配置 Git 信息，跳过克隆步骤。"]);
-      }
-
-      // 3. 初始化数据库
-      setTerminalLogs(prev => [...prev, "[SYSTEM] 开始初始化数据库..."]);
-      await initializeDatabase();
-      setTerminalLogs(prev => [...prev, "[SYSTEM] 数据库初始化完成。"]);
-      
-      setMessage("一键安装、源码克隆与数据库初始化全部完成！");
-    } catch (err: any) {
-      const errMsg = err.toString();
-      setTerminalLogs(prev => [...prev, `[ERROR] ${errMsg}`]);
-      setMessage(`操作失败: ${errMsg}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSyncDb = async () => {
-    setLoading(true);
-    setTerminalLogs(prev => [...prev, "[SYSTEM] 开始同步数据库配置..."]);
-    try {
-      await initializeDatabase();
-      setTerminalLogs(prev => [...prev, "[SYSTEM] 数据库配置同步成功。"]);
-      setMessage("数据库同步完成！");
-    } catch (err: any) {
-      const errMsg = err.toString();
-      setTerminalLogs(prev => [...prev, `[ERROR] ${errMsg}`]);
-      setMessage(`同步失败: ${errMsg}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -460,28 +400,6 @@ const applyDashboardData = (data: DashboardData) => {
               <div
                 className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(1,90,193,0.5)] ${isUpToDate ? "bg-[#34a853]" : "bg-[#fbbc04]"}`}
               ></div>
-              {isWindows && (
-                <div className="flex items-center space-x-2 mr-2">
-                  <button
-                    onClick={handleWindowsInstall}
-                    disabled={loading}
-                    className="flex items-center space-x-2 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg transition-all text-xs font-semibold"
-                    title="重新安装环境"
-                  >
-                    <span className="material-symbols-outlined text-sm">install_desktop</span>
-                    <span>一键安装</span>
-                  </button>
-                  <button
-                    onClick={handleSyncDb}
-                    disabled={loading}
-                    className="flex items-center space-x-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 px-3 py-1.5 rounded-lg transition-all text-xs font-semibold border border-blue-200/50"
-                    title="根据 web.config 初始化数据库"
-                  >
-                    <span className="material-symbols-outlined text-sm">database</span>
-                    <span>同步数据库</span>
-                  </button>
-                </div>
-              )}
               <span className="text-xs font-semibold text-on-surface">
                 {isUpToDate
                   ? isAhead
@@ -492,16 +410,6 @@ const applyDashboardData = (data: DashboardData) => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            {isWindows && (
-              <button
-                onClick={handleWindowsInstall}
-                disabled={loading}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-purple-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
-              >
-                <span className="material-symbols-outlined text-sm">magic_button</span>
-                <span className="text-sm font-bold">一键安装环境</span>
-              </button>
-            )}
             <div className="flex items-center space-x-6">
               <div className="flex items-center">
                 <div className="flex items-center justify-center px-3">

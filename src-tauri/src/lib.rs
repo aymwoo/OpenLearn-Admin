@@ -1,5 +1,4 @@
 use std::{fs, path::Path};
-use std::thread;
 use std::sync::Mutex;
 
 use chrono::{DateTime, Local};
@@ -1427,122 +1426,8 @@ fn parse_connection_string(conn_str: &str) -> (String, String) {
 }
 
 #[command]
-fn is_windows() -> bool {
-    cfg!(target_os = "windows")
-}
-
-#[command]
-async fn execute_windows_install(window: Window) -> Result<(), String> {
-    let _ = window.emit("install-progress", "[系统] 准备执行 Windows 安装程序...".to_string());
-    #[cfg(not(target_os = "windows"))]
-    {
-        return Err("此功能仅在 Windows 系统上可用".to_string());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        
-        let mut child = Command::new("cmd")
-            .args(["/C", "assets-windows\\安装环境.bat"])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .spawn()
-            .map_err(|e| format!("无法启动安装脚本: {}", e))?;
-
-        let stdout = child.stdout.take().unwrap();
-        let stderr = child.stderr.take().unwrap();
-
-        let window_clone = window.clone();
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                if let Ok(l) = line {
-                    let _ = window_clone.emit("install-progress", l);
-                }
-            }
-        });
-
-        let window_clone2 = window.clone();
-        thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                if let Ok(l) = line {
-                    let _ = window_clone2.emit("install-progress", format!("Error: {}", l));
-                }
-            }
-        });
-
-        thread::spawn(move || {
-            let status = child.wait();
-            let msg = match status {
-                Ok(s) if s.success() => "安装完成".to_string(),
-                Ok(s) => format!("安装脚本执行失败，退出代码: {}", s.code().unwrap_or(-1)),
-                Err(e) => format!("等待安装脚本结束时出错: {}", e),
-            };
-            let _ = window.emit("install-progress", msg);
-        });
-
-        Ok(())
-    }
-}
-
-#[command]
-async fn initialize_database(window: Window) -> Result<(), String> {
-    let _ = window.emit("install-progress", "[数据库] 准备初始化数据库...".to_string());
-    #[cfg(not(target_os = "windows"))]
-    {
-        return Err("此功能仅在 Windows 系统上可用".to_string());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        
-        let mut child = Command::new("cmd")
-            .args(["/C", "assets-windows\\初始化数据库.bat"])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .spawn()
-            .map_err(|e| format!("无法启动初始化脚本: {}", e))?;
-
-        let stdout = child.stdout.take().unwrap();
-        let stderr = child.stderr.take().unwrap();
-
-        let window_clone = window.clone();
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                if let Ok(l) = line {
-                    let _ = window_clone.emit("install-progress", format!("[DB] {}", l));
-                }
-            }
-        });
-
-        let window_clone2 = window.clone();
-        thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                if let Ok(l) = line {
-                    let _ = window_clone2.emit("install-progress", format!("[DB ERROR] {}", l));
-                }
-            }
-        });
-
-        let status = child.wait().map_err(|e| e.to_string())?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err("数据库初始化脚本执行失败".to_string())
-        }
-    }
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    setup_graphics_workarounds();
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
@@ -1559,8 +1444,6 @@ pub fn run() {
             get_system_info,
             get_web_service_info,
             get_database_connection_status,
-            execute_windows_install,
-            initialize_database,
             is_windows,
         ])
         .setup(|app| {
