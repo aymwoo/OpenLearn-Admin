@@ -93,7 +93,7 @@ export async function getDefaultConfig(): Promise<GitConfig> {
   const isWin = await isWindowsHost();
   return {
     ...DEFAULT_GIT_CONFIG,
-    localPath: isWin ? 'assets-windows\\LearnSite' : '',
+    localPath: isWin ? 'LearnSite' : '',
   };
 }
 
@@ -108,7 +108,7 @@ export async function loadConfig(): Promise<GitConfig | null> {
     
     // 如果存储的路径为空且在 Windows 上，应用默认路径
     if (!config.localPath && isWin) {
-      config.localPath = 'assets-windows\\LearnSite';
+      config.localPath = 'LearnSite';
     }
     
     return { ...DEFAULT_GIT_CONFIG, ...config };

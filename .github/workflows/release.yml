@@ -23,7 +23,6 @@ jobs:
     runs-on: ${{ matrix.platform }}
     
     env:
-      # 解决图片中的 Node.js 20 弃用警告
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
@@ -35,7 +34,6 @@ jobs:
         shell: bash
         run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
 
-      # Linux 依赖 (针对 Tauri v2 进行了精简和确认)
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
         run: |
@@ -51,24 +49,20 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      # 使用 pnpm (v9 是当前前沿版本)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      # 升级到 Node.js 22 (LTS) 或 23 (Current)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'pnpm'
 
-      # Rust 环境准备
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          # 针对不同平台添加编译目标
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
@@ -79,72 +73,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      # Windows: 手动构建以强制使用 NSIS (避免 WiX light.exe 错误)
-      - name: Build Tauri App (Windows)
-        if: matrix.platform == 'windows-latest'
-        run: pnpm tauri build --bundles nsis
-
-      # Windows: 上传构建产物到 Release
-      - name: Upload Windows Release Assets
-        if: matrix.platform == 'windows-latest'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
-          name: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
-          body: "See the assets below. For Windows, use the 'Full' package if you need offline installers."
-          draft: false
-          prerelease: false
-          files: |
-            src-tauri/target/release/bundle/nsis/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 非 Windows: 使用 tauri-action 自动构建和发布
-      - name: Build Tauri App (Linux/macOS)
-        if: matrix.platform != 'windows-latest'
+      - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
           releaseName: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
-          releaseBody: "See the assets below. For Windows, use the 'Full' package if you need offline installers."
+          releaseBody: "See the assets below."
           releaseDraft: false
           prerelease: false
-
-      # 针对 Windows 生成包含环境包的特殊压缩包
-      - name: Create Windows Full ZIP
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          $ref = "${{ github.ref_name }}"
-          if ($ref -match "^v") {
-            $version = $ref.Replace("v", "")
-          } else {
-            $version = "${{ github.sha }}".Substring(0,7)
-          }
-          $pkgName = "OpenLearn-Admin-v$version-Windows-Full"
-          New-Item -ItemType Directory -Path $pkgName
-          
-          # 复制主程序 (Cargo 编译产物名为 app.exe)
-          Copy-Item "src-tauri/target/release/app.exe" -Destination "$pkgName/OpenLearn-Admin.exe"
-          
-          # 复制环境资产
-          Copy-Item -Recurse "assets-windows" -Destination "$pkgName/"
-          
-          # 复制启动脚本 (如果根目录有的话，或者直接使用 exe)
-          # Copy-Item "assets-windows/启动.bat" -Destination "$pkgName/"
-          
-          # 压缩
-          Compress-Archive -Path "$pkgName/*" -DestinationPath "$pkgName.zip"
-          
-          echo "PACKAGE_PATH=$pkgName.zip" >> $env:GITHUB_ENV
-
-      - name: Upload Windows Full ZIP
-        if: matrix.platform == 'windows-latest'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ env.PACKAGE_PATH }}
-          tag_name: "Openlearn-Manager-${{ steps.date.outputs.TIMESTAMP }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -85,22 +85,22 @@ export default function Settings() {
   return (
     <main className="min-h-screen bg-[#f6fafe] p-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold text-[#2D3A82] mb-8 tracking-tight">系统设置</h1>
+        <h1 className="text-3xl font-semibold text-[#2D3A82] mb-8 tracking-tight">系统设置</h1>
 
         <div className="mb-6">
-          <label htmlFor="remoteUrl" className="block text-sm text-[#566167] mb-2">远端仓库地址</label>
+          <label htmlFor="remoteUrl" className="block text-base text-[#566167] mb-2">远端仓库地址</label>
           <input
             id="remoteUrl"
             type="text"
             value={config.remoteUrl}
             onChange={e => setConfig({ ...config, remoteUrl: e.target.value })}
             placeholder="https://github.com/user/repo.git"
-            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+            className="w-full px-4 py-3 text-base bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
           />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="localPath" className="block text-sm text-[#566167] mb-2">本地路径</label>
+          <label htmlFor="localPath" className="block text-base text-[#566167] mb-2">本地路径</label>
           <div className="flex gap-2">
             <input
               id="localPath"
@@ -108,7 +108,7 @@ export default function Settings() {
               value={config.localPath}
               onChange={e => setConfig({ ...config, localPath: e.target.value })}
               placeholder="/path/to/local/repo"
-              className="flex-1 px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+              className="flex-1 px-4 py-3 text-base bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
             />
             <button
               type="button"
@@ -118,69 +118,69 @@ export default function Settings() {
                   setConfig({ ...config, localPath: selected });
                 }
               }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md border hover:bg-gray-200 transition-colors flex items-center gap-2"
+              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-md border hover:bg-gray-200 transition-colors flex items-center gap-2 text-base"
             >
-              <span className="material-symbols-outlined text-sm">folder_open</span>
+              <span className="material-symbols-outlined text-base">folder_open</span>
               浏览
             </button>
           </div>
         </div>
 
         <div className="mb-6">
-          <label htmlFor="branch" className="block text-sm text-[#566167] mb-2">分支</label>
+          <label htmlFor="branch" className="block text-base text-[#566167] mb-2">分支</label>
           <input
             id="branch"
             type="text"
             value={config.branch}
             onChange={e => setConfig({ ...config, branch: e.target.value })}
             placeholder="main 或 master"
-            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+            className="w-full px-4 py-3 text-base bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
           />
           {branches.length > 0 && (
-            <p className="mt-2 text-xs text-[#888]">
+            <p className="mt-2 text-sm text-[#888]">
               可选: {branches.join(', ')}
             </p>
           )}
         </div>
 
         <div className="mb-6">
-          <label htmlFor="versionFilePath" className="block text-sm text-[#566167] mb-2">版本文件路径</label>
+          <label htmlFor="versionFilePath" className="block text-base text-[#566167] mb-2">版本文件路径</label>
           <input
             id="versionFilePath"
             type="text"
             value={config.versionFilePath}
             onChange={e => setConfig({ ...config, versionFilePath: e.target.value })}
             placeholder="release.log"
-            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+            className="w-full px-4 py-3 text-base bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
           />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="changelogFilePath" className="block text-sm text-[#566167] mb-2">更新日志路径</label>
+          <label htmlFor="changelogFilePath" className="block text-base text-[#566167] mb-2">更新日志路径</label>
           <input
             id="changelogFilePath"
             type="text"
             value={config.changelogFilePath}
             onChange={e => setConfig({ ...config, changelogFilePath: e.target.value })}
             placeholder="CHANGELOG.md"
-            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+            className="w-full px-4 py-3 text-base bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
           />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="webServiceUrl" className="block text-sm text-[#566167] mb-2">Web 服务 URL</label>
+          <label htmlFor="webServiceUrl" className="block text-base text-[#566167] mb-2">Web 服务 URL</label>
           <input
             id="webServiceUrl"
             type="text"
             value={config.webServiceUrl || ''}
             onChange={e => setConfig({ ...config, webServiceUrl: e.target.value })}
             placeholder="http://127.0.0.1:8000"
-            className="w-full px-4 py-2 bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
+            className="w-full px-4 py-3 text-base bg-white rounded-md border focus:ring-1 focus:ring-[#4d59a3]"
           />
         </div>
 
         <div className="mb-6 flex items-center justify-between">
-          <span className="text-sm text-[#566167]">强制用远端覆盖本地冲突</span>
+          <span className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
           <button
             type="button"
             onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
@@ -191,48 +191,59 @@ export default function Settings() {
         </div>
 
         <div className="mb-8 flex items-center justify-between">
-          <span className="text-sm text-[#566167]">拉取前备份</span>
+          <span className="text-base text-[#566167]">拉取前备份</span>
           <button
             type="button"
             onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-            className={`w-12 h-6 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-14 h-7 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
-            <span className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="w-full py-3 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-lg font-medium disabled:opacity-50"
-        >
-          {loading ? '保存中...' : '保存配置'}
-        </button>
+        <div className="mb-8 flex gap-3">
+          <Link
+            href="/"
+            className="flex-1 py-3 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-lg font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">dashboard</span>
+            返回仪表盘
+          </Link>
 
-        <button
-          onClick={() => router.push('/setup')}
-          className="w-full py-3 mt-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined text-sm">settings_suggest</span>
-          重新运行配置向导
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-1 py-3 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">save</span>
+            {loading ? '保存中...' : '保存配置'}
+          </button>
+
+          <button
+            onClick={() => router.push('/setup')}
+            className="flex-1 py-3 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">settings_suggest</span>
+            重新运行向导
+          </button>
+        </div>
 
         {showCloneConfirm && (
-          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-800 mb-3">
+          <div className="mt-4 p-5 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-base text-amber-800 mb-3">
               本地路径为空，是否从远端克隆仓库？
             </p>
             <div className="flex gap-2">
               <button
                 onClick={handleClone}
                 disabled={cloning}
-                className="flex-1 py-2 bg-amber-600 text-white rounded-md text-sm font-medium disabled:opacity-50"
+                className="flex-1 py-3 bg-amber-600 text-white rounded-md font-medium disabled:opacity-50"
               >
                 {cloning ? '克隆中...' : '确认克隆'}
               </button>
               <button
                 onClick={() => setShowCloneConfirm(false)}
-                className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium"
+                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-md font-medium"
               >
                 取消
               </button>
@@ -241,14 +252,10 @@ export default function Settings() {
         )}
 
         {message && (
-          <p className={`mt-4 text-sm ${message.includes('已保存') ? 'text-[#006d4a]' : 'text-[#a8364b]'}`}>
+          <p className={`mt-4 text-base ${message.includes('已保存') ? 'text-[#006d4a]' : 'text-[#a8364b]'}`}>
             {message}
           </p>
         )}
-
-        <div className="mt-8 text-center">
-          <Link href="/" className="text-sm text-[#4d59a3] hover:underline">返回 Dashboard</Link>
-        </div>
       </div>
     </main>
   );

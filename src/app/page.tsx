@@ -46,7 +46,6 @@ export default function Dashboard() {
     behind: number;
     lastCommitTime: string;
   } | null>(null);
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [serviceRunning, setServiceRunning] = useState(false);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [webServiceInfo, setWebServiceInfo] = useState<WebServiceInfo | null>(
@@ -54,6 +53,7 @@ export default function Dashboard() {
   );
   const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<DbConnectionStatus | null>(null);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [isWindows, setIsWindows] = useState(false);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
@@ -973,9 +973,9 @@ export default function Dashboard() {
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <p className="text-white/30 text-xs tracking-wider">
-                    SYSTEM_TERMINAL
-                  </p>
+<p className="text-white/30 text-xs tracking-wider">
+                     CHANGELOG
+                   </p>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto text-white/70 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent p-2">
@@ -994,6 +994,24 @@ export default function Dashboard() {
                       </span>
                     </p>
                   ))
+                ) : localDetails?.changelogSection ? (
+                  <div className="space-y-2">
+                    <p className="text-white/50 text-xs">本地版本 {localDetails?.version} 最近更新：</p>
+                    <pre className="text-emerald-400 whitespace-pre-wrap font-mono text-sm leading-relaxed">{localDetails.changelogSection}</pre>
+                    {message && (
+                      <p className="mt-2 pt-2 border-t border-white/10">
+                        <span
+                          className={
+                            message.includes("失败") || message.includes("error")
+                              ? "text-rose-400"
+                              : "text-amber-400"
+                          }
+                        >
+                          {message}
+                        </span>
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <>
                     {message && (
