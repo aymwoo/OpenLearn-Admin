@@ -61,6 +61,7 @@ export interface FetchProgress {
   receivedBytes?: number;
   totalObjects?: number;
   receivedObjects?: number;
+  status?: 'pending' | 'success' | 'error';
 }
 
 export interface SystemInfo {
