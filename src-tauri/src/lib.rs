@@ -53,17 +53,6 @@ fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
 
 const PROGRESS_EVENT: &str = "pull-progress";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[derive(PartialEq)]
-enum DirectoryState {
-    Valid,
-    Empty,
-    NonExistent,
-    ExistingRepo,
-    InvalidRepo,
-    MissingFile(String),
-}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -273,48 +262,6 @@ fn is_directory_empty(path: &Path) -> Result<bool, String> {
         .map(|entry| entry.is_none())
 }
 
-fn check_directory_state(path: &Path) -> DirectoryState {
-    if !path.exists() {
-        return DirectoryState::NonExistent;
-    }
-    
-    if !path.is_dir() {
-        return DirectoryState::InvalidRepo;
-    }
-    
-    if is_valid_git_repo(path) {
-        return DirectoryState::ExistingRepo;
-    }
-    
-    match is_directory_empty(path) {
-        Ok(true) => DirectoryState::Empty,
-        Ok(false) => DirectoryState::InvalidRepo,
-        Err(_) => DirectoryState::InvalidRepo,
-    }
-}
-
-fn check_repo_health(repo_path: &Path, version_file: &str, changelog_file: &str) -> DirectoryState {
-    let state = check_directory_state(repo_path);
-    
-    if state != DirectoryState::ExistingRepo {
-        return state;
-    }
-    
-    let version_path = repo_path.join(version_file);
-    let changelog_path = repo_path.join(changelog_file);
-    
-    if !version_path.exists() || !changelog_path.exists() {
-        return DirectoryState::MissingFile(
-            if !version_path.exists() { 
-                version_file.to_string() 
-            } else { 
-                changelog_file.to_string() 
-            }
-        );
-    }
-    
-    DirectoryState::Valid
-}
 
 fn open_repo(path: &str) -> Result<Repository, String> {
     let p = Path::new(path);
@@ -763,6 +710,17 @@ fn git_status(path: String, branch: Option<String>) -> Result<serde_json::Value,
         return Err("本地路径是空文件夹，请先克隆仓库".to_string());
     }
 
+    // 检查是否为有效的 Git 仓库（避免在克隆进行中时阻塞）
+    if !is_valid_git_repo(path) {
+        return Err("目标目录不是有效的 Git 仓库".to_string());
+    }
+
+    // 检查是否有 .git/index.lock（表示另一个 git 操作正在进行）
+    let lock_file = path.join(".git").join("index.lock");
+    if lock_file.exists() {
+        return Err("仓库正在被其他操作使用中，请稍后再试".to_string());
+    }
+
     let repo = open_repo(&path.to_string_lossy())?;
     
     // 动态检测远程名称，优先使用 origin
@@ -1194,21 +1152,6 @@ mod tests {
 
 // Set environment variables to help work around GBM/graphics issues in some Linux environments
 
-fn setup_graphics_workarounds() {
-    // These can help when GBM fails due to GPU/display issues
-    #[cfg(target_os = "linux")]
-    {
-        use std::env;
-        // Try to use software rendering when GPU is not available
-        if env::var("LIBGL_ALWAYS_SOFTWARE").is_err() {
-            env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-        }
-        // Disable hardware composition in WebKit
-        if env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
-            env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        }
-    }
-}
 
 #[command]
 async fn get_web_service_info(url: String) -> Option<WebServiceInfo> {

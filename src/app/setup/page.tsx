@@ -16,7 +16,7 @@ import {
   listenPullProgress,
 } from '@/lib/git';
 
-type Step = 'welcome' | 'remote' | 'local' | 'clone' | 'files' | 'service' | 'done';
+type Step = 'welcome' | 'remote' | 'local' | 'files' | 'service' | 'done';
 
 interface StepInfo {
   title: string;
@@ -36,10 +36,6 @@ const STEP_INFO: Record<Step, StepInfo> = {
     title: '选择本地路径',
     description: '请选择仓库在本地存储的位置',
   },
-  clone: {
-    title: '克隆仓库',
-    description: '正在从远端克隆仓库到本地',
-  },
   files: {
     title: '配置文件路径',
     description: '设置版本文件和更新日志的路径',
@@ -49,12 +45,12 @@ const STEP_INFO: Record<Step, StepInfo> = {
     description: '设置 Web 服务的地址（可选）',
   },
   done: {
-    title: '配置完成',
-    description: '您的系统已经准备就绪',
+    title: '同步仓库',
+    description: '保存配置并同步远端仓库',
   },
 };
 
-const STEP_ORDER: Step[] = ['welcome', 'remote', 'local', 'clone', 'files', 'service', 'done'];
+const STEP_ORDER: Step[] = ['welcome', 'remote', 'local', 'files', 'service', 'done'];
 
 export default function SetupWizard() {
   const router = useRouter();
@@ -62,11 +58,11 @@ export default function SetupWizard() {
   const [config, setConfig] = useState<GitConfig>(DEFAULT_GIT_CONFIG);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [cloneProgress, setCloneProgress] = useState('');
   const [branches, setBranches] = useState<string[]>(['main', 'master']);
-  const [skipClone, setSkipClone] = useState(false);
   const [localPathExists, setLocalPathExists] = useState(false);
   const [progress, setProgress] = useState<FetchProgress>({ stage: 'idle', percent: 0, label: '' });
+  const [syncStarted, setSyncStarted] = useState(false);
+  const [syncDone, setSyncDone] = useState(false);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -92,6 +88,7 @@ export default function SetupWizard() {
 
   const goToStep = (step: Step) => {
     setError('');
+    setLoading(false);
     setCurrentStep(step);
   };
 
@@ -125,69 +122,48 @@ export default function SetupWizard() {
         if (!config.branch || !branchList.includes(config.branch)) {
           setConfig((c) => ({ ...c, branch: branchList[0] || 'main' }));
         }
-        nextStep();
       }
     } catch {
       setLocalPathExists(false);
-      if (config.remoteUrl) {
-        nextStep();
-      } else {
-        setError('本地路径无效且未配置远端仓库地址，无法继续');
-      }
     } finally {
       setLoading(false);
     }
+    nextStep();
   };
 
-useEffect(() => {
-    if (currentStep === 'clone') {
-      const unlisten = listenPullProgress((progress) => {
-        setCloneProgress(progress.label);
-        setProgress({ stage: progress.stage, percent: progress.percent, label: progress.label });
-        
-        if (progress.stage === 'done' && progress.result) {
-          setTimeout(() => nextStep(), 500);
-        } else if (progress.stage === 'error') {
-          setError(progress.label);
+  // 监听 pull/clone 进度事件
+  useEffect(() => {
+    if (currentStep === 'done' && syncStarted) {
+      const unlisten = listenPullProgress((p) => {
+        setProgress({ stage: p.stage, percent: p.percent, label: p.label });
+
+        if (p.stage === 'done' && p.result) {
+          setSyncDone(true);
+          setLoading(false);
+        } else if (p.stage === 'error') {
+          setError(p.label);
           setLoading(false);
         }
       });
-      
+
       return () => {
         unlisten.then(fn => fn());
       };
     }
-  }, [currentStep]);
+  }, [currentStep, syncStarted]);
 
-  useEffect(() => {
-    if (currentStep === 'clone' && !loading) {
-      const doClone = async () => {
-        setLoading(true);
-        setError('');
-        setCloneProgress('正在准备克隆...');
-        try {
-          await runSmartPull(config);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      };
-      doClone();
-    }
-  }, [currentStep]);
-
-  const handleSkipClone = () => {
-    setSkipClone(true);
-    nextStep();
-  };
-
-  const handleSaveAndFinish = async () => {
+  // 进入 done 步骤时：保存配置 → 触发后台 clone/pull
+  const handleSaveAndSync = async () => {
     setLoading(true);
+    setError('');
     try {
       await saveConfig(config);
-      nextStep();
+      setSyncStarted(true);
+      setProgress({ stage: 'clone', percent: 5, label: '正在准备同步仓库...' });
+      // runSmartPull 在 Rust 后端使用 thread::spawn 运行，不会阻塞
+      runSmartPull(config).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setLoading(false);
     }
   };
@@ -198,13 +174,10 @@ useEffect(() => {
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center mb-8">
-      {STEP_ORDER.filter((s) => s !== 'clone' || !skipClone).map((step, index) => {
+      {STEP_ORDER.map((step, index) => {
         const stepIndex = STEP_ORDER.indexOf(step);
         const isActive = step === currentStep;
         const isPast = STEP_ORDER.indexOf(currentStep) > stepIndex;
-        const adjustedIndex = skipClone && stepIndex > STEP_ORDER.indexOf('clone')
-          ? stepIndex - 1
-          : stepIndex;
 
         return (
           <div key={step} className="flex items-center">
@@ -222,7 +195,7 @@ useEffect(() => {
                     : 'bg-gray-200 text-gray-500'
               }`}
             >
-              {adjustedIndex + 1}
+              {stepIndex + 1}
             </div>
           </div>
         );
@@ -232,11 +205,6 @@ useEffect(() => {
 
   const renderWelcome = () => (
     <div className="text-center">
-      <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-[#4d59a3] to-[#404d96] rounded-2xl flex items-center justify-center shadow-lg">
-        <span className="material-symbols-outlined text-white text-4xl">
-          settings_suggest
-        </span>
-      </div>
       <h2 className="text-2xl font-bold text-[#2D3A82] mb-3">
         {STEP_INFO.welcome.title}
       </h2>
@@ -337,39 +305,6 @@ useEffect(() => {
     </div>
   );
 
-  const renderClone = () => (
-    <div className="text-center py-8">
-      {loading ? (
-        <>
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-gray-200 border-t-[#4d59a3] rounded-full animate-spin" />
-          <p className="text-gray-600">{cloneProgress || '正在克隆仓库...'}</p>
-        </>
-      ) : (
-        <>
-          <div className="w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
-            <span className="material-symbols-outlined text-amber-600 text-3xl">
-              cloud_download
-            </span>
-          </div>
-          <h3 className="text-lg font-medium text-gray-800 mb-2">
-            准备克隆仓库
-          </h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            本地路径无效或为空，需要从远端克隆仓库。
-          </p>
-          <div className="bg-gray-50 p-4 rounded-lg mb-6 text-left">
-            <p className="text-xs text-gray-500 mb-1">远端地址</p>
-            <p className="text-sm text-gray-700 truncate">{config.remoteUrl}</p>
-            <p className="text-xs text-gray-500 mt-2 mb-1">本地路径</p>
-            <p className="text-sm text-gray-700 truncate">{config.localPath}</p>
-            <p className="text-xs text-gray-500 mt-2 mb-1">分支</p>
-            <p className="text-sm text-gray-700">{config.branch}</p>
-          </div>
-        </>
-      )}
-    </div>
-  );
-
   const renderFiles = () => (
     <div>
       <div className="mb-6">
@@ -465,42 +400,134 @@ useEffect(() => {
     </div>
   );
 
-  const renderDone = () => (
-    <div className="text-center py-8">
-      <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-lg">
-        <span className="material-symbols-outlined text-white text-4xl">
-          check_circle
-        </span>
-      </div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-3">
-        {STEP_INFO.done.title}
-      </h2>
-      <p className="text-gray-600 mb-8 max-w-md mx-auto">
-        您的系统已经配置完成，现在可以开始使用了。
-      </p>
-      <div className="bg-gray-50 p-6 rounded-lg max-w-md mx-auto text-left">
-        <h4 className="text-sm font-medium text-gray-700 mb-4">配置摘要</h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">远端仓库</span>
-            <span className="text-gray-700 truncate max-w-[200px]">{config.remoteUrl || '-'}</span>
+  const renderDone = () => {
+    // 同步完成
+    if (syncDone) {
+      return (
+        <div className="text-center py-6">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-lg">
+            <span className="material-symbols-outlined text-white text-4xl">
+              check_circle
+            </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">本地路径</span>
-            <span className="text-gray-700 truncate max-w-[200px]">{config.localPath || '-'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">分支</span>
-            <span className="text-gray-700">{config.branch}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Web 服务</span>
-            <span className="text-gray-700">{config.webServiceUrl || '-'}</span>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            配置完成
+          </h2>
+          <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            您的系统已经配置完成，仓库同步成功。
+          </p>
+          <div className="bg-gray-50 p-6 rounded-xl max-w-md mx-auto text-left">
+            <h4 className="text-sm font-medium text-gray-700 mb-4">配置摘要</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">远端仓库</span>
+                <span className="text-gray-700 truncate max-w-[200px]">{config.remoteUrl || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">本地路径</span>
+                <span className="text-gray-700 truncate max-w-[200px]">{config.localPath || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">分支</span>
+                <span className="text-gray-700">{config.branch}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Web 服务</span>
+                <span className="text-gray-700">{config.webServiceUrl || '-'}</span>
+              </div>
+            </div>
           </div>
         </div>
+      );
+    }
+
+    // 正在同步
+    if (syncStarted) {
+      return (
+        <div className="text-center py-6">
+          <div className="w-16 h-16 mx-auto mb-6 border-4 border-gray-200 border-t-[#4d59a3] rounded-full animate-spin" />
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">正在同步仓库</h3>
+          <p className="text-sm text-gray-500 mb-6">配置已保存，正在从远端同步仓库数据...</p>
+
+          {/* 进度条 */}
+          <div className="max-w-md mx-auto mb-4">
+            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-[#4d59a3] to-[#6b74c4] h-2.5 rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(progress.percent, 5)}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-2 truncate">
+              {progress.label || '准备中...'}
+            </p>
+          </div>
+
+          {/* 后台运行按钮 */}
+          <button
+            onClick={handleGoToDashboard}
+            className="mt-4 px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 mx-auto"
+          >
+            <span className="material-symbols-outlined text-sm">open_in_new</span>
+            后台运行，进入主界面
+          </button>
+        </div>
+      );
+    }
+
+    // 尚未开始同步：显示配置摘要 + 开始同步按钮
+    return (
+      <div className="text-center py-6">
+        <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-[#4d59a3] to-[#6b74c4] rounded-2xl flex items-center justify-center shadow-lg">
+          <span className="material-symbols-outlined text-white text-3xl">
+            cloud_sync
+          </span>
+        </div>
+        <p className="text-gray-600 mb-6 max-w-md mx-auto">
+          所有配置已就绪，点击下方按钮保存配置并开始同步仓库。
+        </p>
+
+        {/* 配置摘要 */}
+        <div className="bg-gray-50 p-5 rounded-xl max-w-md mx-auto text-left mb-6">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">配置摘要</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">远端仓库</span>
+              <span className="text-gray-700 truncate max-w-[220px]">{config.remoteUrl || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">本地路径</span>
+              <span className="text-gray-700 truncate max-w-[220px]">{config.localPath || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">分支</span>
+              <span className="text-gray-700">{config.branch}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">版本文件</span>
+              <span className="text-gray-700">{config.versionFilePath || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">更新日志</span>
+              <span className="text-gray-700">{config.changelogFilePath || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Web 服务</span>
+              <span className="text-gray-700">{config.webServiceUrl || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {localPathExists && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl max-w-md mx-auto">
+            <div className="flex items-center gap-2 text-green-700 justify-center">
+              <span className="material-symbols-outlined text-sm">check_circle</span>
+              <span className="text-sm font-medium">检测到已有本地仓库，将执行增量更新</span>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderContent = () => {
     switch (currentStep) {
@@ -510,8 +537,6 @@ useEffect(() => {
         return renderRemote();
       case 'local':
         return renderLocal();
-      case 'clone':
-        return renderClone();
       case 'files':
         return renderFiles();
       case 'service':
@@ -547,22 +572,19 @@ useEffect(() => {
       case 'local':
         await handleCheckLocalPath();
         break;
-      case 'clone':
-        break;
       case 'files':
         nextStep();
         break;
       case 'service':
-        await handleSaveAndFinish();
+        nextStep();
         break;
       default:
         nextStep();
     }
   };
 
-  const showBack = currentStep !== 'welcome' && currentStep !== 'done' && currentStep !== 'clone';
+  const showBack = currentStep !== 'welcome' && currentStep !== 'done';
   const showNext = currentStep !== 'done';
-  const showSkip = currentStep === 'clone' && !loading;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#f6fafe] to-white flex flex-col">
@@ -570,12 +592,14 @@ useEffect(() => {
         <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl p-8">
           {currentStep !== 'welcome' && currentStep !== 'done' && renderStepIndicator()}
 
-          <div className="text-center mb-8">
-            <h2 className="text-xl font-bold text-[#2D3A82]">
-              {STEP_INFO[currentStep].title}
-            </h2>
-            <p className="text-gray-500 mt-1">{STEP_INFO[currentStep].description}</p>
-          </div>
+          {currentStep !== 'welcome' && currentStep !== 'done' && (
+            <div className="text-center mb-8">
+              <h2 className="text-xl font-bold text-[#2D3A82]">
+                {STEP_INFO[currentStep].title}
+              </h2>
+              <p className="text-gray-500 mt-1">{STEP_INFO[currentStep].description}</p>
+            </div>
+          )}
 
           {renderContent()}
 
@@ -609,28 +633,29 @@ useEffect(() => {
             </div>
 
             <div className="flex gap-3">
-              {showSkip && (
-                <button
-                  onClick={handleSkipClone}
-                  disabled={loading}
-                  className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
-                >
-                  跳过
-                </button>
-              )}
               {showNext && (
                 <button
                   onClick={handleNext}
                   disabled={loading || !canProceed()}
                   className="px-6 py-2.5 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  {loading ? '处理中...' : currentStep === 'service' ? '完成配置' : '下一步'}
+                  {loading ? '处理中...' : '下一步'}
                 </button>
               )}
-              {currentStep === 'done' && (
+              {currentStep === 'done' && !syncStarted && (
+                <button
+                  onClick={handleSaveAndSync}
+                  disabled={loading}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-sm">cloud_sync</span>
+                  保存并同步
+                </button>
+              )}
+              {currentStep === 'done' && syncDone && (
                 <button
                   onClick={handleGoToDashboard}
-                  className="px-8 py-2.5 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+                  className="px-8 py-2.5 bg-gradient-to-r from-[#4d59a3] to-[#404d96] text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
                 >
                   进入控制台
                 </button>

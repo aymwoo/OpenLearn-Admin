@@ -174,13 +174,17 @@ export async function getRemoteStatus(
     }>("git_status", { path, branch });
     return result;
   } catch (error) {
-    console.error("Git status check failed:", error);
+    const msg = typeof error === 'string' ? error : String(error);
+    const isExpected = msg.includes('空文件夹') || msg.includes('请先克隆') || msg.includes('不是有效') || msg.includes('路径不存在') || msg.includes('正在被其他操作');
+    if (!isExpected) {
+      console.warn("Git status check:", msg);
+    }
     return {
       hasUpdates: false,
       ahead: 0,
       behind: 0,
       branch: branch || "main",
-      lastCommitTime: "Error",
+      lastCommitTime: "-",
     };
   }
 }

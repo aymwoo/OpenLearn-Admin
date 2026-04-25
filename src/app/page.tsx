@@ -90,6 +90,10 @@ const applyDashboardData = (data: DashboardData) => {
         .then((data) => {
           if (!mounted) return;
           applyDashboardData(data);
+          // 仅在仓库有效时才获取 ahead/behind 状态
+          getRemoteStatus(cfg.localPath, cfg.branch)
+            .then((rs) => { if (mounted) setRemoteStatus(rs); })
+            .catch(() => {});
         })
         .catch((error) => {
           if (!mounted) return;
@@ -111,11 +115,6 @@ const applyDashboardData = (data: DashboardData) => {
             setMessage(errMsg);
           }
         });
-
-      // 后台获取 Git ahead/behind 状态（不阻塞 UI）
-      getRemoteStatus(cfg.localPath, cfg.branch)
-        .then((rs) => { if (mounted) setRemoteStatus(rs); })
-        .catch(() => {});
     };
 
     hydrate();
