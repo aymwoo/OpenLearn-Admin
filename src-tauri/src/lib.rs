@@ -1645,6 +1645,12 @@ fn check_local_repo(path: String) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    {
+        // 修复 Linux 下 (尤其是 NVIDIA 驱动) WebKitGTK 的 GBM buffer 错误
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
