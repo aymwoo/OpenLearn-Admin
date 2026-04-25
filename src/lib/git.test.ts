@@ -26,6 +26,8 @@ describe('backupRepo', () => {
 
     const sourcePath = '/my/repo/path';
     await expect(backupRepo(sourcePath)).rejects.toThrow('Backup failed');
+  });
+});
 describe('git', () => {
   describe('pullRepo', () => {
     beforeEach(() => {
