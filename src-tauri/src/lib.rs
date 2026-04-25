@@ -608,121 +608,41 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
 fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let path = Path::new(&config.local_path);
 
-    if !path.exists() || !is_valid_git_repo(path) {
-        if config.remote_url.trim().is_empty() {
-            return Err("本地仓库路径不存在且未配置 remote_url".to_string());
-        }
-
-        if path.exists() && !is_valid_git_repo(path) {
-            let is_empty = is_directory_empty(path).unwrap_or(true);
-            if !is_empty {
-                let backup_path = format!(
-                    "{}.backup-{}",
-                    &config.local_path,
-                    Local::now().format("%Y-%m-%dT%H-%M-%S")
-                );
-                copy_dir_recursive(path, Path::new(&backup_path))
-                    .map_err(|e| format!("备份失败: {e}"))?;
-            }
-            fs::remove_dir_all(path).map_err(|e| format!("清理目录失败: {e}"))?;
-        }
-
-        let branch = default_branch(&config.branch).to_string();
-        git2::build::RepoBuilder::new()
-            .branch(&branch)
-            .fetch_options({
-                let mut options = FetchOptions::new();
-                options.remote_callbacks(remote_callbacks());
-                options
-            })
-            .clone(&config.remote_url, path)
-            .map_err(|e| format!("自动克隆仓库失败: {e}"))?;
+    // 只读检查：不触发任何网络操作（克隆/拉取/fetch）
+    if !path.exists() {
+        return Err("本地仓库路径不存在，请先克隆仓库".to_string());
     }
 
-    let state = check_repo_health(path, &config.version_file_path, &config.changelog_file_path);
-    match state {
-        DirectoryState::Empty => {
-            if config.remote_url.trim().is_empty() {
-                return Err("本地目录为空且未配置 remote_url，无法自动克隆".to_string());
-            }
-            let backup_path = format!(
-                "{}.backup-{}",
-                &config.local_path,
-                Local::now().format("%Y-%m-%dT%H-%M-%S")
-            );
-            copy_dir_recursive(path, Path::new(&backup_path))
-                .map_err(|e| format!("备份失败: {e}"))?;
-            fs::remove_dir_all(path).map_err(|e| format!("清理目录失败: {e}"))?;
-            fs::create_dir_all(path).map_err(|e| format!("创建目录失败: {e}"))?;
-            let branch = default_branch(&config.branch).to_string();
-            git2::build::RepoBuilder::new()
-                .branch(&branch)
-                .fetch_options({
-                    let mut options = FetchOptions::new();
-                    options.remote_callbacks(remote_callbacks());
-                    options
-                })
-                .clone(&config.remote_url, path)
-                .map_err(|e| format!("自动克隆仓库失败: {e}"))?;
+    if !is_valid_git_repo(path) {
+        let is_empty = is_directory_empty(path).unwrap_or(true);
+        if is_empty {
+            return Err("本地路径是空文件夹，请先克隆仓库".to_string());
+        } else {
+            return Err("目标目录不是有效的 Git 仓库，请先克隆仓库".to_string());
         }
-        DirectoryState::MissingFile(_) | DirectoryState::ExistingRepo => {
-            if let Ok(repo) = open_repo(&config.local_path) {
-                let branch = get_head_branch(&repo).unwrap_or_else(|_| "main".to_string());
-                if fetch_branch(&repo, &branch).is_ok() {
-                    if fast_forward(&repo, &branch, true).is_ok() {
-                        log::info!("通过 git pull 成功恢复仓库");
-                    } else {
-                        log::warn!("git pull 失败，将尝试重新克隆");
-                        let backup_path = format!(
-                            "{}.backup-{}",
-                            &config.local_path,
-                            Local::now().format("%Y-%m-%dT%H-%M-%S")
-                        );
-                        if copy_dir_recursive(path, Path::new(&backup_path)).is_ok() {
-                            log::info!("已备份到 {}", backup_path);
-                        }
-                        fs::remove_dir_all(path).map_err(|e| format!("清理目录失败: {e}"))?;
-                        fs::create_dir_all(path).map_err(|e| format!("创建目录失败: {e}"))?;
-                        let branch = default_branch(&config.branch).to_string();
-                        git2::build::RepoBuilder::new()
-                            .branch(&branch)
-                            .fetch_options({
-                                let mut options = FetchOptions::new();
-                                options.remote_callbacks(remote_callbacks());
-                                options
-                            })
-                            .clone(&config.remote_url, path)
-                            .map_err(|e| format!("重新克隆仓库失败: {e}"))?;
-                    }
-                } else {
-                    return Err("fetch 失败，无法恢复仓库".to_string());
-                }
-            } else {
-                return Err("无法打开仓库".to_string());
-            }
-        }
-        DirectoryState::Valid | DirectoryState::NonExistent | DirectoryState::InvalidRepo => {}
     }
 
-    ensure_config(config)?;
-
+    // 仓库存在且有效，只读取本地数据
     let repo = open_repo(&config.local_path)?;
-    fetch_branch(&repo, &config.branch)?;
-    let branch = get_head_branch(&repo)?;
+    let branch = get_head_branch(&repo).unwrap_or_else(|_| default_branch(&config.branch).to_string());
 
-    let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
-    let remote_version_content =
-        read_remote_file(&repo, &config.branch, &config.version_file_path)?;
-    let local_changelog_content =
-        read_worktree_file(&config.local_path, &config.changelog_file_path)?;
-    let remote_changelog_content =
-        read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
+    let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)
+        .unwrap_or_default();
+    let local_changelog_content = read_worktree_file(&config.local_path, &config.changelog_file_path)
+        .unwrap_or_default();
 
-    let local_version = extract_version(&local_version_content)?;
-    let remote_version = extract_version(&remote_version_content)?;
+    let local_version = extract_version(&local_version_content).unwrap_or_else(|_| "-".to_string());
     let local_section = find_changelog_section(&local_changelog_content, &local_version).ok();
-    let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
     let last_fetched_at = file_timestamp(&config.local_path, &config.version_file_path);
+
+    // 尝试从已有的远程引用读取远程版本（不触发 fetch）
+    let remote_version_content = read_remote_file(&repo, &config.branch, &config.version_file_path)
+        .unwrap_or_default();
+    let remote_changelog_content = read_remote_file(&repo, &config.branch, &config.changelog_file_path)
+        .unwrap_or_default();
+
+    let remote_version = extract_version(&remote_version_content).unwrap_or_else(|_| local_version.clone());
+    let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
 
     let changelog_diff = match (&local_section, &remote_section) {
         (Some(local), Some(remote)) => compute_changelog_diff(local, remote),

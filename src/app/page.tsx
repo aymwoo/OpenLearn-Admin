@@ -20,7 +20,6 @@ import {
   runSmartPull,
   type WebServiceInfo,
   isWindowsHost,
-  cloneRepo,
 } from "@/lib/git";
 
 export default function Dashboard() {
@@ -63,11 +62,6 @@ const applyDashboardData = (data: DashboardData) => {
     setStatus(data.status);
     setLocalDetails(data.local);
     setRemoteDetails(data.remote);
-    
-    if (!data.local.version && configRef.current) {
-      setProgress({ stage: "idle", percent: 10, label: "本地仓库未初始化，后台自动克隆中..." });
-      runSmartPull(configRef.current).catch(() => {});
-    }
   };
 
   useEffect(() => {
@@ -91,60 +85,37 @@ const applyDashboardData = (data: DashboardData) => {
 
       setConfig(cfg);
 
-      try {
-        const data = await getDashboardData(cfg);
-        if (!mounted) {
-          return;
-        }
-        applyDashboardData(data);
-
-        // Get ahead/behind/lastCommitTime (Background)
-        getRemoteStatus(cfg.localPath, cfg.branch)
-          .then((rs) => { if (mounted) setRemoteStatus(rs); })
-          .catch(() => {});
-
-        const info = await getSystemInfo();
-        if (mounted) {
-          setSysInfo(info);
-        }
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        if (
-          errMsg.includes("空文件夹") ||
-          errMsg.includes("请先克隆") ||
-          errMsg.includes("不是有效的 Git")
-        ) {
-          if (mounted) {
-            setStatus({
-              currentBranch: cfg.branch,
-              hasUpdates: false,
-              localVersion: undefined,
-              remoteVersion: undefined,
-            });
-            setMessage('本地仓库未初始化，请点击"System Update"自动克隆仓库');
-            getRemoteStatus(cfg.localPath, cfg.branch)
-              .then((rs) => { if (mounted) setRemoteStatus(rs); })
-              .catch(() => {});
-          }
-        } else if (errMsg.includes("读取不到信息")) {
-          if (mounted) {
-            getRemoteStatus(cfg.localPath, cfg.branch)
-              .then((rs) => { if (mounted) setRemoteStatus(rs); })
-              .catch(() => {});
-          }
-        } else if (mounted) {
+      // 非阻塞加载：getDashboardData 现在是只读的，不会触发克隆/拉取
+      getDashboardData(cfg)
+        .then((data) => {
+          if (!mounted) return;
+          applyDashboardData(data);
+        })
+        .catch((error) => {
+          if (!mounted) return;
+          const errMsg = error instanceof Error ? error.message : String(error);
           setStatus({
             currentBranch: cfg.branch,
             hasUpdates: false,
             localVersion: undefined,
             remoteVersion: undefined,
           });
-          setMessage(errMsg);
-          getRemoteStatus(cfg.localPath, cfg.branch)
-            .then((rs) => { if (mounted) setRemoteStatus(rs); })
-            .catch(() => {});
-        }
-      }
+          if (
+            errMsg.includes("空文件夹") ||
+            errMsg.includes("请先克隆") ||
+            errMsg.includes("不是有效的 Git") ||
+            errMsg.includes("路径不存在")
+          ) {
+            setMessage('本地仓库未初始化，请点击更新按钮自动克隆仓库');
+          } else {
+            setMessage(errMsg);
+          }
+        });
+
+      // 后台获取 Git ahead/behind 状态（不阻塞 UI）
+      getRemoteStatus(cfg.localPath, cfg.branch)
+        .then((rs) => { if (mounted) setRemoteStatus(rs); })
+        .catch(() => {});
     };
 
     hydrate();
