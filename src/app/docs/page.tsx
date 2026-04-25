@@ -546,6 +546,21 @@ export default function DocsPage() {
               </div>
             </div>
 
+            <div>
+              <h2 className="text-2xl font-headline font-bold text-on-surface mb-6 flex items-center">
+                <span className="material-symbols-outlined text-primary mr-3">shield_with_heart</span>
+                稳健性与安全性
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FeatureCard icon="lock" title="全局并发保护">
+                  <p>系统内置了基于 Rust 原子的全局锁机制。当有一个 Git 任务（如克隆或同步）正在运行时，系统会自动拦截并排斥其他冲突请求，确保仓库数据的一致性，防止多线程操作导致的代码损坏。</p>
+                </FeatureCard>
+                <FeatureCard icon="settings_backup_restore" title="配置自动保护">
+                  <p>在执行版本更新或覆盖操作时，系统会自动检测并暂存本地的 <code>web.config</code> 文件。任务完成后，系统会强制将其恢复，确保您的本地自定义连接字符串和服务器设置不被远程版本覆盖。</p>
+                </FeatureCard>
+              </div>
+            </div>
+
             <div className="bg-gradient-to-r from-emerald-500/10 via-primary/10 to-violet-500/10 rounded-2xl p-8 border border-primary/20">
               <div className="text-center space-y-4">
                 <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto">
@@ -569,7 +584,7 @@ export default function DocsPage() {
             </div>
 
             <footer className="text-center py-8 text-on-surface-variant text-sm">
-              <p>OpenLearn Manager v4.2.1 · Built with Next.js · © 2024 OpenLearn Manager Team</p>
+              <p>OpenLearn Manager v0.2.1 · Built with Next.js · © 2026 OpenLearn Manager Team</p>
             </footer>
           </div>
         </div>

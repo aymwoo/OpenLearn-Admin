@@ -12,9 +12,9 @@ import {
   type RepoSyncStatus,
   type VersionDetails,
   getDashboardData,
-  getDbConnectionStatus,
   getRemoteStatus,
   getWebServiceInfo,
+  getSyncProgress,
   listenPullProgress,
   loadConfig,
   runSmartPull,
@@ -24,6 +24,7 @@ import {
   stopProjectTask,
   listenServiceLog,
   isPortOccupied,
+  checkNodeEnv,
 } from "@/lib/git";
 import { open as openUrl } from '@tauri-apps/plugin-shell';
 
@@ -48,19 +49,24 @@ export default function Dashboard() {
     behind: number;
     lastCommitTime: string;
   } | null>(null);
-  const [serviceRunning, setServiceRunning] = useState(false);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [webServiceInfo, setWebServiceInfo] = useState<WebServiceInfo | null>(
     null
   );
   const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<DbConnectionStatus | null>(null);
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-  const [isDevActive, setIsDevActive] = useState(false);
-  const [runningTask, setRunningTask] = useState<string | null>(null);
   const [isWindows, setIsWindows] = useState(false);
+  const [runningTask, setRunningTask] = useState<string | null>(null);
+  const [isDevActive, setIsDevActive] = useState(false);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
+
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [terminalLogs]);
 
   useEffect(() => {
     configRef.current = config;
@@ -93,12 +99,10 @@ const applyDashboardData = (data: DashboardData) => {
 
       setConfig(cfg);
 
-      // 非阻塞加载：getDashboardData 现在是只读的，不会触发克隆/拉取
       getDashboardData(cfg)
         .then((data) => {
           if (!mounted) return;
           applyDashboardData(data);
-          // 仅在仓库有效时才获取 ahead/behind 状态
           getRemoteStatus(cfg.localPath, cfg.branch)
             .then((rs) => { if (mounted) setRemoteStatus(rs); })
             .catch(() => {});
@@ -123,6 +127,12 @@ const applyDashboardData = (data: DashboardData) => {
             setMessage(errMsg);
           }
         });
+      getSyncProgress().then(p => {
+        if (mounted && p.stage !== 'idle' && p.stage !== 'done' && p.stage !== 'error') {
+          setProgress(p);
+          setLoading(true);
+        }
+      }).catch(() => {});
     };
 
     hydrate();
@@ -147,7 +157,6 @@ const applyDashboardData = (data: DashboardData) => {
             remoteVersion: res.remote.version,
           });
           setLoading(false);
-          // 自动重新加载数据，确保主界面刷新
           hydrate();
         } else if (nextProgress.stage === "error") {
           setMessage(nextProgress.label);
@@ -218,14 +227,6 @@ const applyDashboardData = (data: DashboardData) => {
     };
   }, [config]);
 
-  useEffect(() => {
-    if (!config?.localPath) return;
-    
-    getDbConnectionStatus(config.localPath)
-      .then(setDbStatus)
-      .catch(() => {});
-  }, [config]);
-
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return { value: 0, unit: "B" };
     const k = 1024;
@@ -247,7 +248,6 @@ const applyDashboardData = (data: DashboardData) => {
   };
 
   const handlePull = async () => {
-    console.log("handlePull called, config:", !!config);
     if (!config) {
       setMessage("系统配置未加载，请先完成基本设置。");
       return;
@@ -259,7 +259,6 @@ const applyDashboardData = (data: DashboardData) => {
 
     try {
       await runSmartPull(config);
-      // 结果现在通过 listenPullProgress 异步处理
     } catch (error) {
       const nextMessage =
         error instanceof Error ? error.message : String(error);
@@ -276,7 +275,6 @@ const applyDashboardData = (data: DashboardData) => {
   const handleProjectTask = async (task: string) => {
     if (!config?.localPath) return;
 
-    // 端口占用检测逻辑
     if (task === 'dev' && config.webServiceUrl) {
       try {
         const url = new URL(config.webServiceUrl);
@@ -336,7 +334,6 @@ const applyDashboardData = (data: DashboardData) => {
         remoteVersion: result.remote.version,
       });
 
-      // 异步获取 Git 状态，不阻塞主界面加载
       getRemoteStatus(config.localPath, config.branch)
         .then((rs) => setRemoteStatus(rs))
         .catch((err) => console.error("后台获取 Git 状态失败:", err));
@@ -346,7 +343,6 @@ const applyDashboardData = (data: DashboardData) => {
       setLoading(false);
     }
   };
-
   if (!config) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -357,7 +353,6 @@ const applyDashboardData = (data: DashboardData) => {
     );
   }
 
-  // Derived state calculations
   const localVer = localDetails?.version ?? status?.localVersion ?? "-";
   const remoteVer = remoteDetails?.version ?? status?.remoteVersion ?? "-";
   const isUpToDate = remoteStatus
@@ -370,7 +365,6 @@ const applyDashboardData = (data: DashboardData) => {
 
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
-      {/* SideNavBar */}
       <nav className="h-screen w-64 fixed left-0 top-0 bg-[#f7f9fb] dark:bg-slate-950 flex flex-col p-4 space-y-6 border-r-0 z-20">
         <div className="flex items-center px-2 py-4">
           <div>
@@ -418,7 +412,6 @@ const applyDashboardData = (data: DashboardData) => {
         </div>
       </nav>
 
-      {/* Main Content Area */}
       <main className="flex-1 ml-64 flex flex-col h-screen overflow-hidden bg-background">
         <header className="flex justify-between items-center w-full px-8 py-4 backdrop-blur-xl bg-[#f7f9fb]/85 dark:bg-slate-950/85 shadow-[0_12px_40px_rgba(0,67,148,0.08)] z-10 sticky top-0">
           <div className="flex items-center space-x-4">
@@ -440,20 +433,6 @@ const applyDashboardData = (data: DashboardData) => {
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-6">
-              <div className="flex items-center">
-                <div className="flex items-center justify-center px-3">
-                  <span className={`material-symbols-outlined text-lg ${dbStatus?.connected ? 'text-purple-500' : 'text-rose-500'}`}>
-                    database
-                  </span>
-                </div>
-                <div className="flex items-center px-2">
-                  <span className={`text-xs font-medium ${dbStatus?.connected ? 'text-purple-600' : 'text-rose-600'}`}>
-                    {dbStatus?.connected ? '已连接' : '未连接'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
               <div className="flex items-center">
                 <div className="flex items-center justify-center px-3">
@@ -500,7 +479,6 @@ const applyDashboardData = (data: DashboardData) => {
 
         <div className="flex-1 overflow-y-auto p-8">
           <div className="flex flex-col space-y-6">
-            {/* Row 1: System Status and Version */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <div className={`col-span-1 md:col-span-3 bg-gradient-to-br rounded-xl p-8 text-on-primary relative overflow-hidden transition-all duration-500 shadow-[0_12px_40px_rgba(0,67,148,0.08)] ${isUpToDate ? "from-primary to-primary-container" : "from-orange-500 to-orange-600"}`}>
                 <div className="relative z-10 flex justify-between items-center h-full">
@@ -531,7 +509,6 @@ const applyDashboardData = (data: DashboardData) => {
                             : "检测到远程有新版本，建议同步仓库。")}
                     </p>
 
-                    {/* Horizontal Progress Bar */}
                     {loading && (
                       <div className="mt-6 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <div className="flex justify-between items-center mb-1.5 px-0.5">
@@ -881,126 +858,84 @@ const applyDashboardData = (data: DashboardData) => {
             </div>
 
             <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-emerald-600">
                   <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-emerald-500">timer</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">运行时间</p>
+                    <span className="material-symbols-outlined text-sm">timer</span>
+                    <p className="text-[11px] font-bold opacity-70 tracking-wider">运行时间</p>
                   </div>
-                  <h4 className="text-lg font-bold text-on-surface truncate" title={webServiceInfo?.systemUptime}>{webServiceInfo?.systemUptime ?? "-"}</h4>
+                  <h4 className="text-lg font-bold truncate" title={webServiceInfo?.systemUptime}>{webServiceInfo?.systemUptime ?? "-"}</h4>
+                </div>
+
+                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-rose-500">
+                  <div className="flex items-center space-x-2 mb-1.5">
+                    <span className="material-symbols-outlined text-sm">monitoring</span>
+                    <p className="text-[11px] font-bold opacity-70 tracking-wider">CPU使用率</p>
+                  </div>
+                  <h4 className="text-xl font-bold truncate">{sysInfo?.cpuUsage ?? "--"}%</h4>
                 </div>
                 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-indigo-500">
                   <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-rose-500">memory</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">内存</p>
+                    <span className="material-symbols-outlined text-sm">memory</span>
+                    <p className="text-[11px] font-bold opacity-70 tracking-wider">内存</p>
                   </div>
-                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.aspNetMemory ? `${webServiceInfo.aspNetMemory} MB` : "-"}</h4>
+                  <h4 className="text-xl font-bold truncate">{webServiceInfo?.aspNetMemory ? `${webServiceInfo.aspNetMemory} MB` : "-"}</h4>
                 </div>
 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-cyan-500">
                   <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-cyan-500">reorder</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">线程数</p>
+                    <span className="material-symbols-outlined text-sm">reorder</span>
+                    <p className="text-[11px] font-bold opacity-70 tracking-wider">线程数</p>
                   </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.aspNetThreadCount ?? "-"}</h4>
+                  <h4 className="text-2xl font-headline font-bold">{webServiceInfo?.aspNetThreadCount ?? "-"}</h4>
                 </div>
 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-violet-500">
                   <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-violet-500">storage</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">数据库</p>
+                    <span className="material-symbols-outlined text-sm">storage</span>
+                    <p className="text-[11px] font-bold opacity-70 tracking-wider">数据库</p>
                   </div>
-                  <h4 className="text-xl font-bold text-on-surface truncate">{webServiceInfo?.dbSize ?? "-"}</h4>
+                  <h4 className="text-xl font-bold truncate">{webServiceInfo?.dbSize ?? "-"}</h4>
                 </div>
               </div>
             </div>
             </>
             )}
 
-            {/* Row 2: Metrics */}
+            {/* Row 2: Resource Metrics */}
             <div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {/* Metric 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Metric: CPU Usage */}
                 <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center relative overflow-hidden group">
                   <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <span className="material-symbols-outlined text-9xl text-emerald-500">
-                      schedule
+                    <span className="material-symbols-outlined text-9xl text-rose-500">
+                      monitoring
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
-                    系统正常运行时间
-                  </p>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface truncate pr-4">
-                    {uptime ? uptime.value : "-"}{" "}
-                    <span className="text-base text-on-surface-variant font-semibold">
-                      {uptime ? uptime.unit : ""}
-                    </span>
-                  </h4>
-                  <p className="text-xs text-on-surface-variant mt-2">
-                    自上次重启
-                  </p>
-                </div>
-
-                {/* Metric 2 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="material-symbols-outlined text-amber-500 text-sm">
-                      database
-                    </span>
-                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                      数据库大小
-                    </p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface mb-1">
-                    {sysInfo
-                      ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable)
-                          .value
-                      : "-"}{" "}
-                    <span className="text-sm text-on-surface-variant font-semibold">
-                      {sysInfo
-                        ? formatBytes(sysInfo.diskTotal - sysInfo.diskAvailable)
-                            .unit
-                        : ""}
-                    </span>
-                  </h4>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
-                    <div
-                      className="bg-amber-500 h-1.5 rounded-full"
-                      style={{
-                        width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal) * 100 : 0}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-on-surface-variant mt-2">
-                    按磁盘总容量的 15% 估算，仅供参考
-                  </p>
-                </div>
-
-                {/* Metric 3 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="material-symbols-outlined text-rose-500 text-sm">
-                      memory
+                      settings_input_component
                     </span>
                     <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">
                       CPU 使用率
                     </p>
                   </div>
-                  <div className="flex items-baseline space-x-1 mb-1">
-                    <h4 className="text-2xl font-headline font-bold text-on-surface">
-                      {sysInfo?.cpuUsage ?? 42}%
-                    </h4>
-                  </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
+                  <h4 className="text-3xl font-headline font-bold text-on-surface">
+                    {sysInfo?.cpuUsage ?? "--"}%
+                  </h4>
+                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-4">
                     <div
-                      className="bg-rose-500 h-1.5 rounded-full"
-                      style={{ width: `${sysInfo?.cpuUsage ?? 42}%` }}
+                      className="bg-rose-500 h-1.5 rounded-full transition-all duration-500"
+                      style={{ width: `${sysInfo?.cpuUsage ?? 0}%` }}
                     ></div>
                   </div>
+                  <p className="text-xs text-on-surface-variant mt-2">
+                    实时处理器负载
+                  </p>
                 </div>
 
-                {/* Metric 4 */}
+                {/* Metric: Memory Usage */}
                 <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="material-symbols-outlined text-purple-500 text-sm">
@@ -1025,7 +960,7 @@ const applyDashboardData = (data: DashboardData) => {
                   </p>
                   <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-2">
                     <div
-                      className="bg-purple-500 h-1.5 rounded-full"
+                      className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
                       style={{
                         width: `${sysInfo && sysInfo.memoryTotal > 0 ? (sysInfo.memoryUsed / sysInfo.memoryTotal) * 100 : 0}%`,
                       }}
@@ -1033,9 +968,9 @@ const applyDashboardData = (data: DashboardData) => {
                   </div>
                 </div>
 
-                {/* Metric 5 */}
-                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center col-span-1 lg:col-span-2 xl:col-span-1">
-                  <div className="flex justify-between items-center mb-4">
+                {/* Metric: Disk Space */}
+                <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col justify-center">
+                  <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-cyan-500 text-sm">
                         hard_drive
@@ -1044,22 +979,16 @@ const applyDashboardData = (data: DashboardData) => {
                         磁盘空间
                       </p>
                     </div>
-                    <p className="text-xs font-semibold text-on-surface-variant">
-                      {sysInfo
-                        ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}`
-                        : "-"}{" "}
-                      总计
-                    </p>
                   </div>
                   <div className="flex items-end justify-between mb-2">
-                    <h4 className="text-3xl font-headline font-bold text-on-surface">
+                    <h4 className="text-2xl font-headline font-bold text-on-surface">
                       {sysInfo ? formatBytes(sysInfo.diskAvailable).value : "-"}{" "}
-                      <span className="text-base text-on-surface-variant font-semibold">
+                      <span className="text-sm text-on-surface-variant font-semibold">
                         {sysInfo ? formatBytes(sysInfo.diskAvailable).unit : ""}{" "}
                         可用
                       </span>
                     </h4>
-                    <span className="text-sm font-semibold text-on-surface">
+                    <span className="text-xs font-semibold text-on-surface-variant">
                       {sysInfo && sysInfo.diskTotal > 0
                         ? (
                             ((sysInfo.diskTotal - sysInfo.diskAvailable) /
@@ -1070,18 +999,21 @@ const applyDashboardData = (data: DashboardData) => {
                       % 已用
                     </span>
                   </div>
-                  <div className="w-full bg-surface-container-high rounded-full h-2 mt-1">
+                  <div className="w-full bg-surface-container-high rounded-full h-1.5 mt-1">
                     <div
-                      className="bg-cyan-500 h-2 rounded-full transition-all duration-500"
+                      className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500"
                       style={{
                         width: `${sysInfo && sysInfo.diskTotal > 0 ? ((sysInfo.diskTotal - sysInfo.diskAvailable) / sysInfo.diskTotal) * 100 : 0}%`,
                       }}
                     ></div>
                   </div>
+                  <p className="text-xs text-on-surface-variant mt-2">
+                    总计 {sysInfo ? `${formatBytes(sysInfo.diskTotal).value} ${formatBytes(sysInfo.diskTotal).unit}` : "-"}
+                  </p>
                 </div>
               </div>
             </div>
-
+            
             {/* Row 3: Terminal */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm h-64 flex flex-col font-mono text-sm relative overflow-hidden">
               <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">

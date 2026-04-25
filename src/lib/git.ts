@@ -11,6 +11,7 @@ export interface GitConfig {
   changelogFilePath: string;
   webServiceUrl?: string;
   isWindows?: boolean;
+  autoRestoreWebConfig: boolean;
 }
 
 const CONFIG_KEY = 'git-updater-config';
@@ -24,6 +25,7 @@ export const DEFAULT_GIT_CONFIG: GitConfig = {
   versionFilePath: 'release.log',
   changelogFilePath: 'CHANGELOG.md',
   webServiceUrl: 'http://127.0.0.1:8000',
+  autoRestoreWebConfig: false,
 };
 
 export interface RepoSyncStatus {
@@ -203,6 +205,10 @@ export async function getBranches(path: string): Promise<string[]> {
   }
 }
 
+export async function getSyncProgress(): Promise<FetchProgress> {
+  return await invoke<FetchProgress>('get_sync_progress');
+}
+
 export async function backupRepo(sourcePath: string): Promise<string> {
   return await invoke<string>('git_backup', { sourcePath });
 }
@@ -344,3 +350,5 @@ export async function startDbService(): Promise<string> {
 export async function stopDbService(): Promise<string> {
   return await invoke('stop_db_service');
 }
+
+

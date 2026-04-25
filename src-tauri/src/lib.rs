@@ -1,6 +1,7 @@
-use std::{fs, path::Path, thread, net::TcpListener};
-use std::sync::Mutex;
+use std::{fs, path::Path, thread};
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::net::TcpListener;
 
 use chrono::{DateTime, Local};
 use git2::{
@@ -14,6 +15,8 @@ use tauri::{command, Emitter, State, Window, Manager};
 
 struct AppState {
     system: Mutex<System>,
+    is_syncing: Arc<Mutex<bool>>,
+    current_progress: Arc<Mutex<FetchProgress>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,6 +70,7 @@ struct GitConfig {
     changelog_file_path: String,
     #[allow(dead_code)]
     web_service_url: Option<String>,
+    auto_restore_web_config: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -630,21 +634,22 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     })
 }
 
-fn emit_progress(window: &Window, stage: &str, percent: u8, label: &str) -> Result<(), String> {
-    window
-        .emit(
-            PROGRESS_EVENT,
-            FetchProgress {
-                stage: stage.to_string(),
-                percent,
-                label: label.to_string(),
-                result: None,
-                received_bytes: None,
-                total_objects: None,
-                received_objects: None,
-            },
-        )
-        .map_err(|e| format!("发送进度失败: {e}"))
+fn emit_progress(window: &Window, cache: Option<&Mutex<FetchProgress>>, stage: &str, percent: u8, label: &str) -> Result<(), String> {
+    let progress = FetchProgress {
+        stage: stage.to_string(),
+        percent,
+        label: label.to_string(),
+        result: None,
+        received_bytes: None,
+        total_objects: None,
+        received_objects: None,
+    };
+    if let Some(c) = cache {
+        if let Ok(mut lock) = c.lock() {
+            *lock = progress.clone();
+        }
+    }
+    window.emit(PROGRESS_EVENT, progress).map_err(|e| e.to_string())
 }
 
 
@@ -871,14 +876,319 @@ fn git_backup(source_path: String) -> Result<String, String> {
 }
 
 #[command]
-fn get_dashboard_data(config: GitConfig) -> Result<DashboardData, String> {
-    collect_dashboard_data(&config)
+async fn get_dashboard_data(config: GitConfig) -> Result<DashboardData, String> {
+    // 使用 thread::spawn 将同步的 Git 操作包装起来，防止阻塞主线程
+    thread::spawn(move || {
+        collect_dashboard_data(&config)
+    }).join().map_err(|_| "获取数据线程崩溃".to_string())?
 }
 
 #[command]
-fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
+async fn check_node_env() -> Result<NodeEnvStatus, String> {
+    let node_version = thread::spawn(|| {
+        std::process::Command::new("node")
+            .arg("-v")
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+    }).join().map_err(|_| "检测 Node.js 线程崩溃".to_string())?;
+
+    let pnpm_version = thread::spawn(|| {
+        std::process::Command::new("pnpm")
+            .arg("-v")
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+    }).join().map_err(|_| "检测 pnpm 线程崩溃".to_string())?;
+
+    let registry = thread::spawn(|| {
+        std::process::Command::new("npm")
+            .args(["config", "get", "registry"])
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| "https://registry.npmjs.org/".to_string())
+    }).join().map_err(|_| "检测镜像源线程崩溃".to_string())?;
+
+    Ok(NodeEnvStatus {
+        node_version,
+        pnpm_version,
+        registry,
+    })
+}
+
+#[command]
+async fn run_project_task(
+    window: Window,
+    state: State<'_, ProcessManager>,
+    task: String,
+    path: String,
+) -> Result<String, String> {
+    let app_handle = window.app_handle();
+    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let tools_dir = data_dir.join("tools");
+    let project_path = std::path::Path::new(&path);
+
+    // 自动检测包管理器
+    let use_pnpm = project_path.join("pnpm-lock.yaml").exists();
+    let cmd_name = if use_pnpm { "pnpm" } else { "npm" };
+
+    // 寻找本地 Node.js 路径
+    let mut node_bin_path = None;
+    if tools_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&tools_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with("node-v") {
+                    let p = if cfg!(target_os = "windows") {
+                        entry.path()
+                    } else {
+                        entry.path().join("bin")
+                    };
+                    if p.exists() {
+                        node_bin_path = Some(p);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let is_dev = task == "dev";
+    let mut cmd = std::process::Command::new(cmd_name);
+    
+    // 继承环境变量
+    cmd.envs(std::env::vars());
+
+    // 注入路径
+    if let Some(bin_path) = node_bin_path {
+        let current_path = std::env::var_os("PATH").unwrap_or_default();
+        let mut new_path = bin_path.clone().into_os_string();
+        if cfg!(target_os = "windows") {
+            new_path.push(";");
+        } else {
+            new_path.push(":");
+        }
+        new_path.push(current_path);
+        cmd.env("PATH", new_path);
+    }
+
+    cmd.current_dir(&path);
+    if task == "install" {
+        cmd.arg("install");
+    } else {
+        cmd.args(["run", &task]);
+    }
+
+    if is_dev {
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        
+        let mut child = cmd.spawn().map_err(|e| format!("启动失败: {}", e))?;
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
+
+        {
+            let mut procs = state.processes.lock().unwrap();
+            if let Some(mut old_child) = procs.remove(&task) {
+                let _ = (old_child as std::process::Child).kill();
+            }
+            procs.insert(task.clone(), child);
+        }
+
+        let win_clone = window.clone();
+        thread::spawn(move || {
+            let reader = std::io::BufReader::new(stdout);
+            for line in std::io::BufRead::lines(reader).flatten() {
+                win_clone.emit("service-log", line).ok();
+            }
+        });
+
+        let win_clone_err = window.clone();
+        thread::spawn(move || {
+            let reader = std::io::BufReader::new(stderr);
+            for line in std::io::BufRead::lines(reader).flatten() {
+                win_clone_err.emit("service-log", format!("[ERROR] {}", line)).ok();
+            }
+        });
+
+        Ok(format!("服务已使用 {} 启动", cmd_name))
+    } else {
+        window.emit("service-log", format!("开始执行任务: {}", task)).ok();
+        let output = cmd.output().map_err(|e| format!("执行失败: {}", e))?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        
+        for line in stdout.lines() {
+            window.emit("service-log", line.to_string()).ok();
+        }
+        for line in stderr.lines() {
+            window.emit("service-log", format!("[ERR] {}", line)).ok();
+        }
+
+        if output.status.success() {
+            Ok(format!("任务 {} 执行成功", task))
+        } else {
+            Err(format!("任务 {} 执行失败", task))
+        }
+    }
+}
+
+#[command]
+async fn stop_project_task(state: State<'_, ProcessManager>, task: String) -> Result<String, String> {
+    let mut procs = state.processes.lock().unwrap();
+    if let Some(mut child) = procs.remove(&task) {
+        (child as std::process::Child).kill().map_err(|e| format!("停止失败: {}", e))?;
+        Ok("服务已停止".to_string())
+    } else {
+        Err("服务未在运行".to_string())
+    }
+}
+
+#[command]
+async fn set_npm_registry(url: String) -> Result<String, String> {
     thread::spawn(move || {
-        match run_smart_pull_logic(&window, config) {
+        let output = std::process::Command::new("npm")
+            .args(["config", "set", "registry", &url])
+            .output()
+            .map_err(|e| format!("无法执行 npm 命令: {}", e))?;
+
+        if output.status.success() {
+            Ok(format!("成功切换镜像源至: {}", url))
+        } else {
+            Err(format!("切换失败: {}", String::from_utf8_lossy(&output.stderr)))
+        }
+    }).join().map_err(|_| "设置镜像源线程崩溃".to_string())?
+}
+
+#[command]
+async fn install_node_env(window: Window) -> Result<String, String> {
+    let is_win = cfg!(target_os = "windows");
+    let node_url = if is_win {
+        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-win-x64.zip"
+    } else {
+        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-linux-x64.tar.xz"
+    };
+
+    window.emit("env-install-progress", "正在下载 Node.js...").ok();
+
+    let app_handle = window.app_handle();
+    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let tools_dir = data_dir.join("tools");
+    std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
+
+    let filename = if is_win { "node.zip" } else { "node.tar.xz" };
+    let download_path = tools_dir.join(filename);
+
+    let response = reqwest::get(node_url).await.map_err(|e| format!("下载失败: {}", e))?;
+    let content = response.bytes().await.map_err(|e| format!("读取内容失败: {}", e))?;
+    std::fs::write(&download_path, &content).map_err(|e| format!("写入文件失败: {}", e))?;
+
+    window.emit("env-install-progress", "正在解压 Node.js...").ok();
+
+    if is_win {
+        std::process::Command::new("powershell")
+            .args([
+                "-Command",
+                &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", download_path.display(), tools_dir.display())
+            ])
+            .output()
+            .map_err(|e| format!("解压失败: {}", e))?;
+    } else {
+        std::process::Command::new("tar")
+            .args([
+                "-xJf",
+                &download_path.to_string_lossy(),
+                "-C",
+                &tools_dir.to_string_lossy()
+            ])
+            .output()
+            .map_err(|e| format!("解压失败: {}", e))?;
+    }
+
+    let _ = std::fs::remove_file(download_path);
+    window.emit("env-install-progress", "Node.js 安装完成").ok();
+    Ok("Node.js 安装成功".to_string())
+}
+
+#[command]
+async fn install_pnpm(window: Window) -> Result<String, String> {
+    window.emit("env-install-progress", "正在安装 pnpm...").ok();
+
+    thread::spawn(move || {
+        let output = std::process::Command::new("npm")
+            .args(["install", "-g", "pnpm"])
+            .output()
+            .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
+
+        if output.status.success() {
+            Ok("pnpm 安装成功".to_string())
+        } else {
+            Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+        }
+    }).join().map_err(|_| "安装 pnpm 线程崩溃".to_string())?
+}
+
+#[command]
+async fn is_port_occupied(port: u16) -> Result<bool, String> {
+    match TcpListener::bind(format!("127.0.0.1:{}", port)) {
+        Ok(_) => Ok(false),
+        Err(_) => Ok(true),
+    }
+}
+
+#[command]
+fn get_sync_progress(state: State<'_, AppState>) -> Result<FetchProgress, String> {
+    let progress = state.current_progress.lock().map_err(|e| e.to_string())?;
+    Ok(progress.clone())
+}
+
+#[command]
+fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig) -> Result<(), String> {
+    {
+        let is_syncing = state.is_syncing.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        if *is_syncing {
+            return Err("另一个同步任务正在运行中，请等待当前任务完成。".to_string());
+        }
+    }
+
+    let is_syncing_arc = state.is_syncing.clone();
+    let progress_cache = state.current_progress.clone();
+    
+    std::thread::spawn(move || {
+        {
+            if let Ok(mut lock) = is_syncing_arc.lock() {
+                *lock = true;
+            }
+        }
+
+        let result = run_smart_pull_logic(&window, Some(&progress_cache), config);
+
+        {
+            if let Ok(mut lock) = is_syncing_arc.lock() {
+                *lock = false;
+            }
+        }
+
+        match result {
             Ok(res) => {
                 let _ = window.emit(
                     PROGRESS_EVENT,
@@ -909,15 +1219,26 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
             }
         }
     });
+
     Ok(())
 }
 
-fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult, String> {
+fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
+
+    let web_config_path = Path::new(&config.local_path).join("web.config");
+    let mut web_config_backup: Option<Vec<u8>> = None;
+    if config.auto_restore_web_config && web_config_path.exists() {
+        emit_progress(&window, cache, "backup", 5, "正在暂存 web.config")?;
+        web_config_backup = fs::read(&web_config_path).ok();
+        if web_config_backup.is_some() {
+            window.emit("service-log", "[SYSTEM] 已暂存本地 web.config 文件").ok();
+        }
+    }
 
     let target_path = Path::new(&config.local_path);
     if !is_valid_git_repo(target_path) {
-        emit_progress(&window, "cloning", 10, "正在准备克隆仓库")?;
+        emit_progress(&window, cache, "cloning", 10, "正在准备克隆仓库")?;
 
         if target_path.exists() && !is_valid_git_repo(target_path) {
             let is_empty = fs::read_dir(target_path)
@@ -928,7 +1249,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
                 .is_none();
 
             if !is_empty {
-                emit_progress(&window, "backup", 20, "正在备份现有目录")?;
+                emit_progress(&window, cache, "backup", 20, "正在备份现有目录")?;
                 let backup_path = format!(
                     "{}.backup-{}",
                     &config.local_path,
@@ -940,7 +1261,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
             fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
         }
 
-        emit_progress(&window, "cloning", 50, "正在克隆仓库")?;
+        emit_progress(&window, cache, "cloning", 50, "正在克隆仓库")?;
         let branch = default_branch(&config.branch).to_string();
         git2::build::RepoBuilder::new()
             .branch(&branch)
@@ -952,7 +1273,12 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
             .clone(&config.remote_url, target_path)
             .map_err(|e| format!("克隆仓库失败: {e}"))?;
 
-        emit_progress(&window, "done", 100, "克隆完成")?;
+        if let Some(content) = &web_config_backup {
+            fs::write(&web_config_path, content).ok();
+            window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
+        }
+
+        emit_progress(&window, cache, "done", 100, "克隆完成")?;
         return Ok(build_pull_result(
             true,
             false,
@@ -976,17 +1302,17 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
         ));
     }
 
-    emit_progress(&window, "checking", 10, "检查远端版本")?;
+    emit_progress(&window, cache, "checking", 10, "检查远端版本")?;
 
     let repo = open_repo(&config.local_path)?;
     fetch_branch(&repo, &config.branch)?;
 
-    emit_progress(&window, "reading_remote_version", 25, "读取远端版本")?;
+    emit_progress(&window, cache, "reading_remote_version", 25, "读取远端版本")?;
     let remote_version_content =
         read_remote_file(&repo, &config.branch, &config.version_file_path)?;
     let remote_version = extract_version(&remote_version_content)?;
 
-    emit_progress(&window, "reading_remote_changelog", 40, "读取远端更新日志")?;
+    emit_progress(&window, cache, "reading_remote_changelog", 40, "读取远端更新日志")?;
     let remote_changelog_content =
         read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
     let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
@@ -1005,7 +1331,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
     );
 
     if !versions_differ(&local_version, &remote_version) {
-        emit_progress(&window, "done", 100, "当前已是最新版本")?;
+        emit_progress(&window, cache, "done", 100, "当前已是最新版本")?;
         let local_changelog_content =
             read_worktree_file(&config.local_path, &config.changelog_file_path)?;
         let local_section = find_changelog_section(&local_changelog_content, &local_version).ok();
@@ -1028,14 +1354,19 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
     }
 
     if config.backup_before_pull {
-        emit_progress(&window, "backup", 55, "正在备份本地仓库")?;
+        emit_progress(&window, cache, "backup", 55, "正在备份本地仓库")?;
         backup_repo_dir(&config.local_path)?;
     }
 
-    emit_progress(&window, "pulling", 75, "正在更新本地仓库")?;
+    emit_progress(&window, cache, "pulling", 75, "正在更新本地仓库")?;
     fast_forward(&repo, &config.branch, config.force_push)?;
 
-    emit_progress(&window, "refreshing_local", 90, "刷新本地版本信息")?;
+    if let Some(content) = &web_config_backup {
+        fs::write(&web_config_path, content).ok();
+        window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
+    }
+
+    emit_progress(&window, cache, "refreshing_local", 90, "刷新本地版本信息")?;
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
     let updated_local_version = extract_version(&local_version_content)?;
     let local_changelog_content =
@@ -1051,7 +1382,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
         "local",
     );
 
-    emit_progress(&window, "done", 100, "抓取完成")?;
+    emit_progress(&window, cache, "done", 100, "抓取完成")?;
     Ok(build_pull_result(
         true,
         false,
@@ -1302,286 +1633,6 @@ fn parse_connection_string(conn_str: &str) -> (String, String) {
 }
 
 #[command]
-async fn check_node_env() -> Result<NodeEnvStatus, String> {
-    let node_version = thread::spawn(|| {
-        std::process::Command::new("node")
-            .arg("-v")
-            .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-                } else {
-                    None
-                }
-            })
-    }).join().map_err(|_| "检测 Node.js 线程崩溃".to_string())?;
-
-    let pnpm_version = thread::spawn(|| {
-        std::process::Command::new("pnpm")
-            .arg("-v")
-            .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-                } else {
-                    None
-                }
-            })
-    }).join().map_err(|_| "检测 pnpm 线程崩溃".to_string())?;
-
-    let registry = thread::spawn(|| {
-        std::process::Command::new("npm")
-            .args(["config", "get", "registry"])
-            .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| "https://registry.npmjs.org/".to_string())
-    }).join().map_err(|_| "检测镜像源线程崩溃".to_string())?;
-
-    Ok(NodeEnvStatus {
-        node_version,
-        pnpm_version,
-        registry,
-    })
-}
-
-#[command]
-async fn run_project_task(
-    window: Window,
-    state: State<'_, ProcessManager>,
-    task: String,
-    path: String,
-) -> Result<String, String> {
-    let app_handle = window.app_handle();
-    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
-    let tools_dir = data_dir.join("tools");
-    let project_path = std::path::Path::new(&path);
-
-    // 自动检测包管理器
-    let use_pnpm = project_path.join("pnpm-lock.yaml").exists();
-    let cmd_name = if use_pnpm { "pnpm" } else { "npm" };
-
-    // 寻找本地 Node.js 路径
-    let mut node_bin_path = None;
-    if tools_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&tools_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with("node-v") {
-                    let p = if cfg!(target_os = "windows") {
-                        entry.path()
-                    } else {
-                        entry.path().join("bin")
-                    };
-                    if p.exists() {
-                        node_bin_path = Some(p);
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    let is_dev = task == "dev";
-    let mut cmd = std::process::Command::new(cmd_name);
-    
-    // 继承当前环境变量 (确保 X11/Wayland 正常工作)
-    cmd.envs(std::env::vars());
-    
-    // 注入路径
-    if let Some(bin_path) = node_bin_path {
-        let current_path = std::env::var_os("PATH").unwrap_or_default();
-        let mut new_path = bin_path.clone().into_os_string();
-        if cfg!(target_os = "windows") {
-            new_path.push(";");
-        } else {
-            new_path.push(":");
-        }
-        new_path.push(current_path);
-        cmd.env("PATH", new_path);
-    }
-
-    cmd.current_dir(&path);
-    if task == "install" {
-        cmd.arg("install");
-    } else {
-        cmd.args(["run", &task]);
-    }
-
-    if is_dev {
-        // 对于 dev，我们需要异步运行并管理进程
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
-        
-        let mut child = cmd.spawn().map_err(|e| format!("启动失败: {}", e))?;
-        let stdout = child.stdout.take().unwrap();
-        let stderr = child.stderr.take().unwrap();
-
-        // 停止之前的同名进程
-        {
-            let mut procs = state.processes.lock().unwrap();
-            if let Some(mut old_child) = procs.remove(&task) {
-                let _ = old_child.kill();
-            }
-            procs.insert(task.clone(), child);
-        }
-
-        // 异步读取日志
-        let win_clone = window.clone();
-        thread::spawn(move || {
-            let reader = std::io::BufReader::new(stdout);
-            for line in std::io::BufRead::lines(reader).flatten() {
-                win_clone.emit("service-log", line).ok();
-            }
-        });
-
-        let win_clone_err = window.clone();
-        thread::spawn(move || {
-            let reader = std::io::BufReader::new(stderr);
-            for line in std::io::BufRead::lines(reader).flatten() {
-                win_clone_err.emit("service-log", format!("[ERROR] {}", line)).ok();
-            }
-        });
-
-        Ok("服务已启动".to_string())
-    } else {
-        // 对于 install/build，同步运行并返回结果
-        window.emit("service-log", format!("开始执行任务: {}", task)).ok();
-        let output = cmd.output().map_err(|e| format!("执行失败: {}", e))?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        
-        for line in stdout.lines() {
-            window.emit("service-log", line.to_string()).ok();
-        }
-        for line in stderr.lines() {
-            window.emit("service-log", format!("[ERR] {}", line)).ok();
-        }
-
-        if output.status.success() {
-            Ok(format!("任务 {} 执行成功", task))
-        } else {
-            Err(format!("任务 {} 执行失败", task))
-        }
-    }
-}
-
-#[command]
-async fn stop_project_task(state: State<'_, ProcessManager>, task: String) -> Result<String, String> {
-    let mut procs = state.processes.lock().unwrap();
-    if let Some(mut child) = procs.remove(&task) {
-        child.kill().map_err(|e| format!("停止失败: {}", e))?;
-        Ok("服务已停止".to_string())
-    } else {
-        Err("服务未在运行".to_string())
-    }
-}
-
-#[command]
-async fn is_port_occupied(port: u16) -> Result<bool, String> {
-    match TcpListener::bind(format!("127.0.0.1:{}", port)) {
-        Ok(_) => Ok(false),
-        Err(_) => Ok(true),
-    }
-}
-
-#[command]
-async fn set_npm_registry(url: String) -> Result<String, String> {
-    thread::spawn(move || {
-        let output = std::process::Command::new("npm")
-            .args(["config", "set", "registry", &url])
-            .output()
-            .map_err(|e| format!("无法执行 npm 命令: {}", e))?;
-
-        if output.status.success() {
-            Ok(format!("成功切换镜像源至: {}", url))
-        } else {
-            Err(format!("切换失败: {}", String::from_utf8_lossy(&output.stderr)))
-        }
-    }).join().map_err(|_| "设置镜像源线程崩溃".to_string())?
-}
-
-#[command]
-async fn install_node_env(window: Window) -> Result<String, String> {
-    let is_win = cfg!(target_os = "windows");
-    let node_url = if is_win {
-        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-win-x64.zip"
-    } else {
-        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-linux-x64.tar.xz"
-    };
-
-    window.emit("env-install-progress", "正在下载 Node.js...").ok();
-
-    let app_handle = window.app_handle();
-    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
-    let tools_dir = data_dir.join("tools");
-    std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
-
-    let filename = if is_win { "node.zip" } else { "node.tar.xz" };
-    let download_path = tools_dir.join(filename);
-
-    // 下载文件
-    let response = reqwest::get(node_url).await.map_err(|e| format!("下载失败: {}", e))?;
-    let content = response.bytes().await.map_err(|e| format!("读取内容失败: {}", e))?;
-    std::fs::write(&download_path, &content).map_err(|e| format!("写入文件失败: {}", e))?;
-
-    window.emit("env-install-progress", "正在解压 Node.js...").ok();
-
-    // 解压
-    if is_win {
-        std::process::Command::new("powershell")
-            .args([
-                "-Command",
-                &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", download_path.display(), tools_dir.display())
-            ])
-            .output()
-            .map_err(|e| format!("解压失败: {}", e))?;
-    } else {
-        std::process::Command::new("tar")
-            .args([
-                "-xJf",
-                &download_path.to_string_lossy(),
-                "-C",
-                &tools_dir.to_string_lossy()
-            ])
-            .output()
-            .map_err(|e| format!("解压失败: {}", e))?;
-    }
-
-    // 清理下载文件
-    let _ = std::fs::remove_file(download_path);
-
-    window.emit("env-install-progress", "Node.js 安装完成").ok();
-    Ok("Node.js 安装成功".to_string())
-}
-
-#[command]
-async fn install_pnpm(window: Window) -> Result<String, String> {
-    window.emit("env-install-progress", "正在安装 pnpm...").ok();
-
-    thread::spawn(move || {
-        let output = std::process::Command::new("npm")
-            .args(["install", "-g", "pnpm"])
-            .output()
-            .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
-
-        if output.status.success() {
-            Ok("pnpm 安装成功".to_string())
-        } else {
-            Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
-        }
-    }).join().map_err(|_| "安装 pnpm 线程崩溃".to_string())?
-}
-
-#[command]
 fn is_windows() -> bool {
     cfg!(target_os = "windows")
 }
@@ -1594,10 +1645,27 @@ fn check_local_repo(path: String) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    {
+        // 修复 Linux 下 (尤其是 NVIDIA 驱动) WebKitGTK 的 GBM buffer 错误
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
+            is_syncing: Arc::new(Mutex::new(false)),
+            current_progress: Arc::new(Mutex::new(FetchProgress {
+                stage: "idle".to_string(),
+                percent: 0,
+                label: "".to_string(),
+                result: None,
+                received_bytes: None,
+                total_objects: None,
+                received_objects: None,
+            })),
         })
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             git_clone,
@@ -1607,6 +1675,7 @@ pub fn run() {
             git_backup,
             get_dashboard_data,
             run_smart_pull,
+            get_sync_progress,
             get_system_info,
             get_web_service_info,
             get_database_connection_status,

@@ -254,7 +254,7 @@ export default function Settings() {
           </button>
         </div>
 
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <span className="text-base text-[#566167]">拉取前备份</span>
           <button
             type="button"
@@ -262,6 +262,20 @@ export default function Settings() {
             className={`w-14 h-7 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
             <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-7' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-base text-[#566167]">自动恢复 web.config</span>
+            <span className="text-xs text-[#888] mt-1">更新后自动恢复本地的 web.config 文件</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfig({ ...config, autoRestoreWebConfig: !config.autoRestoreWebConfig })}
+            className={`w-14 h-7 rounded-full transition-colors ${config.autoRestoreWebConfig ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+          >
+            <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.autoRestoreWebConfig ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
