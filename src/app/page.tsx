@@ -395,6 +395,31 @@ const applyDashboardData = (data: DashboardData) => {
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-6">
+              {progress.stage !== 'idle' && progress.stage !== 'done' && (
+                <div className="flex items-center space-x-3 px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800 animate-pulse">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  </span>
+                  <div className="flex flex-col">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+                        {progress.label || '同步中'}
+                      </span>
+                      <span className="text-xs font-black text-blue-700 dark:text-blue-300">
+                        {progress.percent}%
+                      </span>
+                    </div>
+                    <div className="w-24 h-1 bg-blue-100 dark:bg-blue-900 rounded-full mt-0.5 overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 transition-all duration-300" 
+                        style={{ width: `${progress.percent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center">
                 <div className="flex items-center justify-center px-3">
                   <span className={`material-symbols-outlined text-lg ${wsConnectionError ? 'text-rose-500' : 'text-blue-500'}`}>

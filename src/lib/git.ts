@@ -11,6 +11,7 @@ export interface GitConfig {
   changelogFilePath: string;
   webServiceUrl?: string;
   isWindows?: boolean;
+  autoRestoreWebConfig: boolean;
 }
 
 const CONFIG_KEY = 'git-updater-config';
@@ -24,6 +25,7 @@ export const DEFAULT_GIT_CONFIG: GitConfig = {
   versionFilePath: 'release.log',
   changelogFilePath: 'CHANGELOG.md',
   webServiceUrl: 'http://127.0.0.1:8000',
+  autoRestoreWebConfig: false,
 };
 
 export interface RepoSyncStatus {

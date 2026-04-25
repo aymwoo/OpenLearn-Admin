@@ -1,5 +1,5 @@
 use std::{fs, path::Path, thread};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::net::TcpListener;
 
@@ -15,6 +15,7 @@ use tauri::{command, Emitter, State, Window, Manager};
 
 struct AppState {
     system: Mutex<System>,
+    is_syncing: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -68,6 +69,7 @@ struct GitConfig {
     changelog_file_path: String,
     #[allow(dead_code)]
     web_service_url: Option<String>,
+    auto_restore_web_config: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1150,11 +1152,36 @@ async fn is_port_occupied(port: u16) -> Result<bool, String> {
         Err(_) => Ok(true),
     }
 }
-
 #[command]
-fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
-    thread::spawn(move || {
-        match run_smart_pull_logic(&window, config) {
+fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig) -> Result<(), String> {
+    // 立即检查锁状态，防止进入异步线程前就被拦截
+    {
+        let is_syncing = state.is_syncing.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        if *is_syncing {
+            return Err("另一个同步任务正在运行中，请等待当前任务完成。".to_string());
+        }
+    }
+
+    let is_syncing_arc = state.is_syncing.clone();
+    
+    std::thread::spawn(move || {
+        // 在子线程内设置锁
+        {
+            if let Ok(mut lock) = is_syncing_arc.lock() {
+                *lock = true;
+            }
+        }
+
+        // 使用自定义作用域确保任务完成后释放锁
+        let result = run_smart_pull_logic(&window, config);
+
+        {
+            if let Ok(mut lock) = is_syncing_arc.lock() {
+                *lock = false;
+            }
+        }
+
+        match result {
             Ok(res) => {
                 let _ = window.emit(
                     PROGRESS_EVENT,
@@ -1185,11 +1212,23 @@ fn run_smart_pull(window: Window, config: GitConfig) -> Result<(), String> {
             }
         }
     });
+
     Ok(())
 }
 
 fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
+
+    // 1. 暂存 web.config (如果开启了自动恢复)
+    let web_config_path = Path::new(&config.local_path).join("web.config");
+    let mut web_config_backup: Option<Vec<u8>> = None;
+    if config.auto_restore_web_config && web_config_path.exists() {
+        emit_progress(&window, "backup", 5, "正在暂存 web.config")?;
+        web_config_backup = fs::read(&web_config_path).ok();
+        if web_config_backup.is_some() {
+            window.emit("service-log", "[SYSTEM] 已暂存本地 web.config 文件").ok();
+        }
+    }
 
     let target_path = Path::new(&config.local_path);
     if !is_valid_git_repo(target_path) {
@@ -1227,6 +1266,12 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
             })
             .clone(&config.remote_url, target_path)
             .map_err(|e| format!("克隆仓库失败: {e}"))?;
+
+        // 克隆完成后也尝试恢复
+        if let Some(content) = &web_config_backup {
+            fs::write(&web_config_path, content).ok();
+            window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
+        }
 
         emit_progress(&window, "done", 100, "克隆完成")?;
         return Ok(build_pull_result(
@@ -1310,6 +1355,12 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
 
     emit_progress(&window, "pulling", 75, "正在更新本地仓库")?;
     fast_forward(&repo, &config.branch, config.force_push)?;
+
+    // 更新完成后恢复 web.config
+    if let Some(content) = &web_config_backup {
+        fs::write(&web_config_path, content).ok();
+        window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
+    }
 
     emit_progress(&window, "refreshing_local", 90, "刷新本地版本信息")?;
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
@@ -1593,6 +1644,7 @@ pub fn run() {
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
+            is_syncing: Arc::new(Mutex::new(false)),
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
