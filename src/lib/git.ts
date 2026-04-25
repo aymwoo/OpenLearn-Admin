@@ -127,6 +127,10 @@ export async function getDashboardData(config: GitConfig): Promise<DashboardData
   return invoke<DashboardData>('get_dashboard_data', { config });
 }
 
+export async function checkLocalRepo(path: string): Promise<boolean> {
+  return invoke<boolean>('check_local_repo', { path });
+}
+
 export async function runSmartPull(config: GitConfig): Promise<void> {
   return invoke<void>('run_smart_pull', { config });
 }

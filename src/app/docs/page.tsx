@@ -159,6 +159,16 @@ export default function DocsPage() {
                 </span>
               </button>
             </div>
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+            <button
+              className="p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Sync Repository"
+              title="手动同步"
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">
+                refresh
+              </span>
+            </button>
             <Link
               href="/settings"
               className="flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -348,10 +358,19 @@ export default function DocsPage() {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
-                        <span className="material-symbols-outlined text-emerald-500">cloud_done</span>
+                        <span className="material-symbols-outlined text-blue-500">cloud_done</span>
                         <div>
                           <p className="font-headline font-semibold text-on-surface">Web 服务状态</p>
                           <p className="text-sm text-on-surface-variant">绿色表示服务正常运行，可响应请求。系统每 5 秒自动检测一次</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <span className="material-symbols-outlined text-blue-500">refresh</span>
+                        <div>
+                          <p className="font-headline font-semibold text-on-surface">手动同步按钮</p>
+                          <p className="text-sm text-on-surface-variant">点击立即从远程仓库拉取最新版本。该操作在后台线程运行，不影响界面响应</p>
                         </div>
                       </div>
                     </div>

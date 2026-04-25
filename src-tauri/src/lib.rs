@@ -1293,6 +1293,12 @@ fn is_windows() -> bool {
     cfg!(target_os = "windows")
 }
 
+#[command]
+fn check_local_repo(path: String) -> bool {
+    let p = Path::new(&path);
+    p.exists() && is_valid_git_repo(p)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(e) = tauri::Builder::default()
@@ -1312,6 +1318,7 @@ pub fn run() {
             get_web_service_info,
             get_database_connection_status,
             is_windows,
+            check_local_repo,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -1327,4 +1334,3 @@ pub fn run() {
             eprintln!("error while running tauri application: {}", e);
         }
 }
-// Triggering new build to clear potential cache issues

@@ -26,6 +26,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [config, setConfig] = useState<GitConfig | null>(null);
   const [status, setStatus] = useState<RepoSyncStatus | null>(null);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [localDetails, setLocalDetails] = useState<VersionDetails | null>(null);
   const [remoteDetails, setRemoteDetails] = useState<VersionDetails | null>(
     null,
@@ -110,7 +111,7 @@ const applyDashboardData = (data: DashboardData) => {
             errMsg.includes("不是有效的 Git") ||
             errMsg.includes("路径不存在")
           ) {
-            setMessage('本地仓库未初始化，请点击更新按钮自动克隆仓库');
+            setMessage('本地仓库未初始化，请前往设置页面重新配置并同步');
           } else {
             setMessage(errMsg);
           }
@@ -135,16 +136,8 @@ const applyDashboardData = (data: DashboardData) => {
             remoteVersion: res.remote.version,
           });
           setLoading(false);
-          if (configRef.current) {
-            getRemoteStatus(
-              configRef.current.localPath,
-              configRef.current.branch
-            )
-              .then((rs) => {
-                if (mounted) setRemoteStatus(rs);
-              })
-              .catch(() => {});
-          }
+          // 自动重新加载数据，确保主界面刷新
+          hydrate();
         } else if (nextProgress.stage === "error") {
           setMessage(nextProgress.label);
           setLoading(false);
@@ -242,11 +235,15 @@ const applyDashboardData = (data: DashboardData) => {
   };
 
   const handlePull = async () => {
-    if (!config) return;
+    console.log("handlePull called, config:", !!config);
+    if (!config) {
+      setMessage("系统配置未加载，请先完成基本设置。");
+      return;
+    }
 
     setLoading(true);
     setMessage("");
-    setProgress({ stage: "pulling", percent: 5, label: "开始更新..." });
+    setProgress({ stage: "pulling", percent: 0, label: "准备同步...", status: "pending" });
 
     try {
       await runSmartPull(config);
@@ -305,8 +302,9 @@ const applyDashboardData = (data: DashboardData) => {
   const isUpToDate = remoteStatus
     ? remoteStatus.behind === 0 &&
       (remoteStatus.ahead > 0 || localVer === remoteVer)
-    : !status?.hasUpdates;
+    : status?.hasUpdates === false && !!status?.localVersion;
   const isAhead = remoteStatus ? remoteStatus.ahead > 0 : false;
+  const isUninitialized = message.includes("未初始化") || message.includes("请先克隆");
   const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
 
   return (
@@ -319,7 +317,7 @@ const applyDashboardData = (data: DashboardData) => {
               OpenLearn Manager
             </h1>
             <p className="text-xs text-on-surface-variant font-label">
-              v4.2.1 Stable
+              v1.0.0 Stable
             </p>
           </div>
         </div>
@@ -409,6 +407,20 @@ const applyDashboardData = (data: DashboardData) => {
                 </div>
               </div>
 
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+              <button
+                onClick={handlePull}
+                disabled={loading}
+                className={`flex items-center justify-center p-2 text-slate-500 dark:text-slate-400 hover:bg-[#f2f4f6] dark:hover:bg-slate-800 transition-all duration-200 rounded-xl active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${loading ? "animate-spin text-primary" : ""}`}
+                aria-label="Sync Repository"
+                title="立即同步仓库"
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  {loading ? "sync" : "refresh"}
+                </span>
+              </button>
+
              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
              <Link
@@ -436,17 +448,20 @@ const applyDashboardData = (data: DashboardData) => {
                       系统状态表
                     </p>
                     <h3 className="text-4xl md:text-5xl font-headline font-bold tracking-tight mb-2">
-                      {progress.percent > 0 && progress.percent < 100
+                      {loading
                         ? `${Math.round(progress.percent)}%`
-                        : isUpToDate
-                          ? isAhead
-                            ? "系统领先于远程"
-                            : "系统已经是最新"
-                          : "发现新版本"}
+                        : isUninitialized
+                          ? "本地仓库未初始化"
+                          : isUpToDate
+                            ? isAhead
+                              ? "系统领先于远程"
+                              : "系统已经是最新"
+                            : "发现新版本"}
                     </h3>
                     <p className={`text-sm ${isUpToDate ? "text-on-primary-container" : "text-orange-50/90"}`}>
-                      {progress.label ||
-                        (isUpToDate
+                      {loading
+                        ? (progress.label || "正在同步...")
+                        : (isUpToDate
                           ? isAhead
                             ? `本地领先远程 ${remoteStatus?.ahead || 0} 个提交。`
                             : "所有核心服务正在最佳状态运行。"
@@ -454,11 +469,31 @@ const applyDashboardData = (data: DashboardData) => {
                             ? `落后远程 ${remoteStatus?.behind} 个提交，建议更新。`
                             : "检测到远程有新版本，建议同步仓库。")}
                     </p>
+
+                    {/* Horizontal Progress Bar */}
+                    {loading && (
+                      <div className="mt-6 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div className="flex justify-between items-center mb-1.5 px-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+                            {progress.stage === 'cloning' ? 'Cloning' : 'Syncing'}
+                          </span>
+                          <span className="text-[10px] font-bold font-mono">
+                            {Math.round(progress.percent)}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden backdrop-blur-sm shadow-inner relative">
+                          <div
+                            className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+                            style={{ width: `${progress.percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={handlePull}
-                    disabled={loading || isUpToDate}
-                    className={`relative w-32 h-32 flex items-center justify-center shrink-0 ml-4 group transition-all rounded-full ${!isUpToDate && !loading ? "hover:scale-105 active:scale-95 cursor-pointer" : "cursor-default"}`}
+
+                  <div
+                    onClick={!loading && !isUninitialized && !isUpToDate ? handlePull : undefined}
+                    className={`relative w-32 h-32 flex items-center justify-center shrink-0 ml-4 transition-all rounded-full ${!isUpToDate && !loading && !isUninitialized ? "hover:scale-105 active:scale-95 cursor-pointer shadow-lg shadow-orange-500/20" : "cursor-default opacity-90"}`}
                   >
                     <svg
                       className="w-full h-full transform -rotate-90 absolute top-0 left-0"
@@ -489,18 +524,32 @@ const applyDashboardData = (data: DashboardData) => {
                         strokeWidth="8"
                       ></circle>
                     </svg>
-                    <div className="z-10 flex flex-col items-center">
+                    <div className="z-10 flex flex-col items-center pointer-events-none">
                       {loading ? (
                         <span className="text-4xl font-bold font-headline">
                           {Math.round(progress.percent)}%
                         </span>
+                      ) : isUninitialized ? (
+                        <div className="pointer-events-auto">
+                          <Link href="/settings" className="flex flex-col items-center group">
+                            <span
+                              className="material-symbols-outlined text-6xl group-hover:scale-110 transition-transform"
+                              style={{ fontVariationSettings: "'FILL' 1" }}
+                            >
+                              settings
+                            </span>
+                            <span className="text-xs font-bold mt-1 opacity-80">前往设置</span>
+                          </Link>
+                        </div>
                       ) : !isUpToDate ? (
-                        <span
-                          className="material-symbols-outlined text-6xl group-hover:scale-110 transition-transform"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          deployed_code_update
-                        </span>
+                        <div className="flex flex-col items-center">
+                          <span
+                            className="material-symbols-outlined text-6xl group-hover:scale-110 transition-transform"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            deployed_code_update
+                          </span>
+                        </div>
                       ) : (
                         <span
                           className="material-symbols-outlined text-6xl"
@@ -510,7 +559,7 @@ const applyDashboardData = (data: DashboardData) => {
                         </span>
                       )}
                     </div>
-                  </button>
+                  </div>
                 </div>
               </div>
 
@@ -540,7 +589,11 @@ const applyDashboardData = (data: DashboardData) => {
                   </div>
                 </div>
                 <div className="h-px w-full bg-surface-container-low shrink-0"></div>
-                <div className="min-w-0">
+                <div 
+                  className="min-w-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 -m-2 rounded-xl transition-all group"
+                  onClick={() => setShowChangelog(true)}
+                  title="点击查看更新日志"
+                >
                   <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center space-x-2">
                       <p className="text-sm text-on-surface-variant font-semibold tracking-wider">
@@ -848,30 +901,30 @@ const applyDashboardData = (data: DashboardData) => {
             </div>
 
             {/* Row 3: Terminal */}
-            <div className="bg-[#2b2b2b] dark:bg-black rounded-xl p-4 shadow-sm h-64 flex flex-col font-mono text-sm relative overflow-hidden">
-              <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm h-64 flex flex-col font-mono text-sm relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
                 <div className="flex space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
                   <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                 </div>
                 <div className="flex items-center space-x-2">
-<p className="text-white/30 text-xs tracking-wider">
+<p className="text-slate-400 text-xs tracking-wider">
                      CHANGELOG
                    </p>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto text-white/70 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent p-2">
+              <div className="flex-1 overflow-y-auto text-slate-600 space-y-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent p-2">
                 {terminalLogs.length > 0 ? (
                   terminalLogs.map((log, i) => (
                     <p key={i} className="leading-relaxed">
-                      <span className="text-white/30 mr-2">[{new Date().toLocaleTimeString()}]</span>
+                      <span className="text-slate-400 mr-2">[{new Date().toLocaleTimeString()}]</span>
                       <span className={
                         log.toLowerCase().includes("error") || log.includes("错误") 
-                          ? "text-rose-400" 
+                          ? "text-rose-600" 
                           : log.toLowerCase().includes("warn") || log.includes("警告")
-                          ? "text-amber-400"
-                          : "text-emerald-400"
+                          ? "text-amber-600"
+                          : "text-emerald-600"
                       }>
                         {log}
                       </span>
@@ -879,15 +932,15 @@ const applyDashboardData = (data: DashboardData) => {
                   ))
                 ) : localDetails?.changelogSection ? (
                   <div className="space-y-2">
-                    <p className="text-white/50 text-xs">本地版本 {localDetails?.version} 最近更新：</p>
-                    <pre className="text-emerald-400 whitespace-pre-wrap font-mono text-sm leading-relaxed">{localDetails.changelogSection}</pre>
+                    <p className="text-slate-400 text-xs">本地版本 {localDetails?.version} 最近更新：</p>
+                    <pre className="text-slate-700 whitespace-pre-wrap font-mono text-sm leading-relaxed">{localDetails.changelogSection}</pre>
                     {message && (
-                      <p className="mt-2 pt-2 border-t border-white/10">
+                      <p className="mt-2 pt-2 border-t border-slate-200">
                         <span
                           className={
                             message.includes("失败") || message.includes("error")
-                              ? "text-rose-400"
-                              : "text-amber-400"
+                              ? "text-rose-600"
+                              : "text-amber-600"
                           }
                         >
                           {message}
@@ -927,6 +980,61 @@ const applyDashboardData = (data: DashboardData) => {
           </div>
         </div>
       </main>
+
+      {/* Changelog Modal */}
+      {showChangelog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <div className="flex justify-between items-center p-6 border-b dark:border-slate-800">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">history_edu</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold font-headline text-[#004394] dark:text-blue-400">版本更新日志</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">远程版本: {remoteVer}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowChangelog(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-8 max-h-[60vh] overflow-y-auto">
+              {remoteDetails?.changelogSection ? (
+                <div className="space-y-4">
+                  <pre className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-100 dark:border-slate-700">
+                    {remoteDetails.changelogSection}
+                  </pre>
+                  {remoteDetails.changelogDiff && (
+                    <div className="mt-4">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">新增内容</p>
+                      <pre className="text-sm text-emerald-700 dark:text-emerald-400 whitespace-pre-wrap font-mono leading-relaxed bg-emerald-50/50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                        {remoteDetails.changelogDiff}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-400">
+                  <span className="material-symbols-outlined text-4xl mb-2 opacity-20">event_note</span>
+                  <p>暂无更新日志信息</p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/30 flex justify-end">
+              <button 
+                onClick={() => setShowChangelog(false)}
+                className="px-8 py-2.5 bg-[#004394] text-white rounded-xl font-semibold shadow-lg shadow-blue-900/20 hover:scale-105 active:scale-95 transition-all"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

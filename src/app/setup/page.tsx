@@ -10,10 +10,10 @@ import {
   saveConfig,
   loadConfig,
   getDefaultConfig,
-  getRemoteStatus,
   getBranches,
   runSmartPull,
   listenPullProgress,
+  checkLocalRepo,
 } from '@/lib/git';
 
 type Step = 'welcome' | 'remote' | 'local' | 'files' | 'service' | 'done';
@@ -114,16 +114,17 @@ export default function SetupWizard() {
     setLoading(true);
     setError('');
     try {
-      const status = await getRemoteStatus(config.localPath, config.branch);
-      if (status.branch) {
-        setLocalPathExists(true);
+      const exists = await checkLocalRepo(config.localPath);
+      setLocalPathExists(exists);
+      if (exists) {
         const branchList = await getBranches(config.localPath);
         setBranches(branchList);
         if (!config.branch || !branchList.includes(config.branch)) {
           setConfig((c) => ({ ...c, branch: branchList[0] || 'main' }));
         }
       }
-    } catch {
+    } catch (e) {
+      console.error("Check local repo failed:", e);
       setLocalPathExists(false);
     } finally {
       setLoading(false);
