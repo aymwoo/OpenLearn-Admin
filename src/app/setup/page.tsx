@@ -316,9 +316,9 @@ useEffect(() => {
                 setConfig({ ...config, localPath: selected });
               }
             }}
-            className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-200 transition-colors flex items-center gap-2"
+            className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-200 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-1"
           >
-            <span className="material-symbols-outlined text-sm">folder_open</span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">folder_open</span>
             浏览
           </button>
         </div>
@@ -428,8 +428,11 @@ useEffect(() => {
             <span className="text-sm text-gray-600">强制覆盖本地冲突</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.forcePush}
+              aria-label="强制用远端覆盖本地冲突"
               onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-2 ${
                 config.forcePush ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
@@ -447,8 +450,11 @@ useEffect(() => {
             <span className="text-sm text-gray-600">拉取前备份</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.backupBeforePull}
+              aria-label="拉取前备份"
               onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-2 ${
                 config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >

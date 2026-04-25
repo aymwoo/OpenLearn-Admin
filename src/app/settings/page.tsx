@@ -118,9 +118,9 @@ export default function Settings() {
                   setConfig({ ...config, localPath: selected });
                 }
               }}
-              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-md border hover:bg-gray-200 transition-colors flex items-center gap-2 text-base"
+              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-md border hover:bg-gray-200 transition-colors flex items-center gap-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-1"
             >
-              <span className="material-symbols-outlined text-base">folder_open</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">folder_open</span>
               浏览
             </button>
           </div>
@@ -183,8 +183,11 @@ export default function Settings() {
           <span className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.forcePush}
+            aria-label="强制用远端覆盖本地冲突"
             onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-            className={`w-12 h-6 rounded-full transition-colors ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-12 h-6 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-2 ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
             <span className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.forcePush ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
@@ -194,8 +197,11 @@ export default function Settings() {
           <span className="text-base text-[#566167]">拉取前备份</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.backupBeforePull}
+            aria-label="拉取前备份"
             onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-            className={`w-14 h-7 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-14 h-7 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:ring-offset-2 ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
             <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
