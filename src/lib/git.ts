@@ -306,3 +306,29 @@ export async function startDbService(): Promise<string> {
 export async function stopDbService(): Promise<string> {
   return await invoke('stop_db_service');
 }
+
+export async function isPortOccupied(port: number): Promise<boolean> {
+  return await invoke<boolean>('is_port_occupied', { port });
+}
+
+export async function runProjectTask(task: string, path: string): Promise<string> {
+  return await invoke<string>('run_project_task', { task, path });
+}
+
+export async function stopProjectTask(task: string): Promise<string> {
+  return await invoke<string>('stop_project_task', { task });
+}
+
+export interface NodeEnvStatus {
+  nodeVersion: string | null;
+  pnpmVersion: string | null;
+  registry: string;
+}
+
+export async function checkNodeEnv(): Promise<NodeEnvStatus> {
+  return await invoke<NodeEnvStatus>('check_node_env');
+}
+
+export async function switchNpmRegistry(registry: string): Promise<string> {
+  return await invoke<string>('switch_npm_registry', { registry });
+}
