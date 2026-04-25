@@ -1659,6 +1659,7 @@ pub fn run() {
                 received_objects: None,
             })),
         })
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             git_clone,
