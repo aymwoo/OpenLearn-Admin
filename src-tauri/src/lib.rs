@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, thread};
 use std::sync::Mutex;
 
 use chrono::{DateTime, Local};
@@ -1426,6 +1426,10 @@ fn parse_connection_string(conn_str: &str) -> (String, String) {
 }
 
 #[command]
+fn is_windows() -> bool {
+    cfg!(target_os = "windows")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(e) = tauri::Builder::default()
