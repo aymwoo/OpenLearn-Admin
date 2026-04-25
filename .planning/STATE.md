@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-23 - Completed quick task 260423-pil: 根据本地路径根目录的webconfig中的数据库连接字符串获取数据库连接信息,展示数据库连接状态在顶部区域
+2026-04-25 - Completed quick task 260425-b6e: 修复 Tauri Rust 构建错误：移除 run 的错误 command 标注，恢复 is_windows 命令与 thread 导入，确保 release workflow 可构建
 
 ---
 
@@ -32,3 +32,4 @@
 | 260421-rnc | 添加版本日志折叠效果 | 2026-04-21 | 0c049e9 | [260421-rnc-changelog](./quick/260421-rnc-changelog/) |
 | 260421-rjo-clone | 添加 get_dashboard_data 自动克隆逻辑 | 2026-04-21 | 241e134 | [260421-rjo-clone](./quick/260421-rjo-clone/) |
 | 260421-r1p | 修复 GBM buffer 错误 | 2026-04-21 | d8adcd6 | [260421-r1p-gbm-buffer](./quick/260421-r1p-gbm-buffer/) || 260421-platform-services | Implement cross-platform start/stop service commands | 2026-04-21 | HEAD | [260421-platform-services](./quick/260421-platform-services/) |
+| 260425-b6e | 修复 Tauri Rust 构建错误：移除 run 的错误 command 标注，恢复 is_windows 命令与 thread 导入，确保 release workflow 可构建 | 2026-04-25 | 8b039db | [260425-b6e-tauri-rust-run-command-is-windows-thread](./quick/260425-b6e-tauri-rust-run-command-is-windows-thread/) |
