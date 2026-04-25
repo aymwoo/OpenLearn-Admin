@@ -205,6 +205,10 @@ export async function getBranches(path: string): Promise<string[]> {
   }
 }
 
+export async function getSyncProgress(): Promise<FetchProgress> {
+  return await invoke<FetchProgress>('get_sync_progress');
+}
+
 export async function backupRepo(sourcePath: string): Promise<string> {
   return await invoke<string>('git_backup', { sourcePath });
 }

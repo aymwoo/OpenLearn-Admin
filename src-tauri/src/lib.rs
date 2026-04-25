@@ -16,6 +16,7 @@ use tauri::{command, Emitter, State, Window, Manager};
 struct AppState {
     system: Mutex<System>,
     is_syncing: Arc<Mutex<bool>>,
+    current_progress: Arc<Mutex<FetchProgress>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -633,21 +634,22 @@ fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     })
 }
 
-fn emit_progress(window: &Window, stage: &str, percent: u8, label: &str) -> Result<(), String> {
-    window
-        .emit(
-            PROGRESS_EVENT,
-            FetchProgress {
-                stage: stage.to_string(),
-                percent,
-                label: label.to_string(),
-                result: None,
-                received_bytes: None,
-                total_objects: None,
-                received_objects: None,
-            },
-        )
-        .map_err(|e| format!("发送进度失败: {e}"))
+fn emit_progress(window: &Window, cache: Option<&Mutex<FetchProgress>>, stage: &str, percent: u8, label: &str) -> Result<(), String> {
+    let progress = FetchProgress {
+        stage: stage.to_string(),
+        percent,
+        label: label.to_string(),
+        result: None,
+        received_bytes: None,
+        total_objects: None,
+        received_objects: None,
+    };
+    if let Some(c) = cache {
+        if let Ok(mut lock) = c.lock() {
+            *lock = progress.clone();
+        }
+    }
+    window.emit(PROGRESS_EVENT, progress).map_err(|e| e.to_string())
 }
 
 
@@ -1152,9 +1154,15 @@ async fn is_port_occupied(port: u16) -> Result<bool, String> {
         Err(_) => Ok(true),
     }
 }
+
+#[command]
+fn get_sync_progress(state: State<'_, AppState>) -> Result<FetchProgress, String> {
+    let progress = state.current_progress.lock().map_err(|e| e.to_string())?;
+    Ok(progress.clone())
+}
+
 #[command]
 fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig) -> Result<(), String> {
-    // 立即检查锁状态，防止进入异步线程前就被拦截
     {
         let is_syncing = state.is_syncing.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         if *is_syncing {
@@ -1163,17 +1171,16 @@ fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig)
     }
 
     let is_syncing_arc = state.is_syncing.clone();
+    let progress_cache = state.current_progress.clone();
     
     std::thread::spawn(move || {
-        // 在子线程内设置锁
         {
             if let Ok(mut lock) = is_syncing_arc.lock() {
                 *lock = true;
             }
         }
 
-        // 使用自定义作用域确保任务完成后释放锁
-        let result = run_smart_pull_logic(&window, config);
+        let result = run_smart_pull_logic(&window, Some(&progress_cache), config);
 
         {
             if let Ok(mut lock) = is_syncing_arc.lock() {
@@ -1216,14 +1223,13 @@ fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig)
     Ok(())
 }
 
-fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult, String> {
+fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
 
-    // 1. 暂存 web.config (如果开启了自动恢复)
     let web_config_path = Path::new(&config.local_path).join("web.config");
     let mut web_config_backup: Option<Vec<u8>> = None;
     if config.auto_restore_web_config && web_config_path.exists() {
-        emit_progress(&window, "backup", 5, "正在暂存 web.config")?;
+        emit_progress(&window, cache, "backup", 5, "正在暂存 web.config")?;
         web_config_backup = fs::read(&web_config_path).ok();
         if web_config_backup.is_some() {
             window.emit("service-log", "[SYSTEM] 已暂存本地 web.config 文件").ok();
@@ -1232,7 +1238,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
 
     let target_path = Path::new(&config.local_path);
     if !is_valid_git_repo(target_path) {
-        emit_progress(&window, "cloning", 10, "正在准备克隆仓库")?;
+        emit_progress(&window, cache, "cloning", 10, "正在准备克隆仓库")?;
 
         if target_path.exists() && !is_valid_git_repo(target_path) {
             let is_empty = fs::read_dir(target_path)
@@ -1243,7 +1249,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
                 .is_none();
 
             if !is_empty {
-                emit_progress(&window, "backup", 20, "正在备份现有目录")?;
+                emit_progress(&window, cache, "backup", 20, "正在备份现有目录")?;
                 let backup_path = format!(
                     "{}.backup-{}",
                     &config.local_path,
@@ -1255,7 +1261,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
             fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
         }
 
-        emit_progress(&window, "cloning", 50, "正在克隆仓库")?;
+        emit_progress(&window, cache, "cloning", 50, "正在克隆仓库")?;
         let branch = default_branch(&config.branch).to_string();
         git2::build::RepoBuilder::new()
             .branch(&branch)
@@ -1267,13 +1273,12 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
             .clone(&config.remote_url, target_path)
             .map_err(|e| format!("克隆仓库失败: {e}"))?;
 
-        // 克隆完成后也尝试恢复
         if let Some(content) = &web_config_backup {
             fs::write(&web_config_path, content).ok();
             window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
         }
 
-        emit_progress(&window, "done", 100, "克隆完成")?;
+        emit_progress(&window, cache, "done", 100, "克隆完成")?;
         return Ok(build_pull_result(
             true,
             false,
@@ -1297,17 +1302,17 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
         ));
     }
 
-    emit_progress(&window, "checking", 10, "检查远端版本")?;
+    emit_progress(&window, cache, "checking", 10, "检查远端版本")?;
 
     let repo = open_repo(&config.local_path)?;
     fetch_branch(&repo, &config.branch)?;
 
-    emit_progress(&window, "reading_remote_version", 25, "读取远端版本")?;
+    emit_progress(&window, cache, "reading_remote_version", 25, "读取远端版本")?;
     let remote_version_content =
         read_remote_file(&repo, &config.branch, &config.version_file_path)?;
     let remote_version = extract_version(&remote_version_content)?;
 
-    emit_progress(&window, "reading_remote_changelog", 40, "读取远端更新日志")?;
+    emit_progress(&window, cache, "reading_remote_changelog", 40, "读取远端更新日志")?;
     let remote_changelog_content =
         read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
     let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
@@ -1326,7 +1331,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
     );
 
     if !versions_differ(&local_version, &remote_version) {
-        emit_progress(&window, "done", 100, "当前已是最新版本")?;
+        emit_progress(&window, cache, "done", 100, "当前已是最新版本")?;
         let local_changelog_content =
             read_worktree_file(&config.local_path, &config.changelog_file_path)?;
         let local_section = find_changelog_section(&local_changelog_content, &local_version).ok();
@@ -1349,20 +1354,19 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
     }
 
     if config.backup_before_pull {
-        emit_progress(&window, "backup", 55, "正在备份本地仓库")?;
+        emit_progress(&window, cache, "backup", 55, "正在备份本地仓库")?;
         backup_repo_dir(&config.local_path)?;
     }
 
-    emit_progress(&window, "pulling", 75, "正在更新本地仓库")?;
+    emit_progress(&window, cache, "pulling", 75, "正在更新本地仓库")?;
     fast_forward(&repo, &config.branch, config.force_push)?;
 
-    // 更新完成后恢复 web.config
     if let Some(content) = &web_config_backup {
         fs::write(&web_config_path, content).ok();
         window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
     }
 
-    emit_progress(&window, "refreshing_local", 90, "刷新本地版本信息")?;
+    emit_progress(&window, cache, "refreshing_local", 90, "刷新本地版本信息")?;
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
     let updated_local_version = extract_version(&local_version_content)?;
     let local_changelog_content =
@@ -1378,7 +1382,7 @@ fn run_smart_pull_logic(window: &Window, config: GitConfig) -> Result<PullResult
         "local",
     );
 
-    emit_progress(&window, "done", 100, "抓取完成")?;
+    emit_progress(&window, cache, "done", 100, "抓取完成")?;
     Ok(build_pull_result(
         true,
         false,
@@ -1645,6 +1649,15 @@ pub fn run() {
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
             is_syncing: Arc::new(Mutex::new(false)),
+            current_progress: Arc::new(Mutex::new(FetchProgress {
+                stage: "idle".to_string(),
+                percent: 0,
+                label: "".to_string(),
+                result: None,
+                received_bytes: None,
+                total_objects: None,
+                received_objects: None,
+            })),
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -1655,6 +1668,7 @@ pub fn run() {
             git_backup,
             get_dashboard_data,
             run_smart_pull,
+            get_sync_progress,
             get_system_info,
             get_web_service_info,
             get_database_connection_status,
