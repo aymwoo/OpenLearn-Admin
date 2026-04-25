@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { DEFAULT_GIT_CONFIG, type GitConfig, loadConfig, saveConfig, getBranches, getRemoteStatus, cloneRepo } from '@/lib/git';
+import { DEFAULT_GIT_CONFIG, type GitConfig, loadConfig, saveConfig, getBranches, getRemoteStatus, cloneRepo, checkNodeEnv, type NodeEnvStatus, setNpmRegistry, installNodeEnv, installPnpm, listenEnvInstallProgress } from '@/lib/git';
 
 export default function Settings() {
   const router = useRouter();
@@ -14,6 +14,10 @@ export default function Settings() {
   const [cloning, setCloning] = useState(false);
   const [message, setMessage] = useState('');
   const [showCloneConfirm, setShowCloneConfirm] = useState(false);
+  const [nodeEnv, setNodeEnv] = useState<NodeEnvStatus | null>(null);
+  const [nodeLoading, setNodeLoading] = useState(false);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [installStatus, setInstallStatus] = useState('');
 
   useEffect(() => {
     loadConfig().then(cfg => {
@@ -24,7 +28,67 @@ export default function Settings() {
         }
       }
     });
+    refreshNodeEnv();
+
+    const unlisten = listenEnvInstallProgress((msg) => {
+      setInstallStatus(msg);
+    });
+
+    return () => {
+      unlisten.then(fn => fn());
+    };
   }, []);
+
+  const refreshNodeEnv = async () => {
+    setNodeLoading(true);
+    try {
+      const status = await checkNodeEnv();
+      setNodeEnv(status);
+    } catch (err) {
+      console.error('Failed to check node env:', err);
+    }
+    setNodeLoading(false);
+  };
+
+  const handleSetRegistry = async (url: string) => {
+    setRegistryLoading(true);
+    try {
+      await setNpmRegistry(url);
+      await refreshNodeEnv();
+      setMessage('镜像源切换成功');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err));
+    }
+    setRegistryLoading(false);
+  };
+
+  const handleInstallNode = async () => {
+    setNodeLoading(true);
+    setInstallStatus('正在准备安装...');
+    try {
+      await installNodeEnv();
+      await refreshNodeEnv();
+      setMessage('Node.js 安装成功');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err));
+    }
+    setNodeLoading(false);
+    setInstallStatus('');
+  };
+
+  const handleInstallPnpm = async () => {
+    setNodeLoading(true);
+    setInstallStatus('正在准备安装...');
+    try {
+      await installPnpm();
+      await refreshNodeEnv();
+      setMessage('pnpm 安装成功');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err));
+    }
+    setNodeLoading(false);
+    setInstallStatus('');
+  };
 
   const handleClone = async () => {
     if (!config.remoteUrl || !config.localPath) {
@@ -256,6 +320,102 @@ export default function Settings() {
             {message}
           </p>
         )}
+
+        {/* Node.js Environment Section */}
+        <div className="mt-12 pt-12 border-t border-gray-200">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#4d59a3]">terminal</span>
+              <h2 className="text-xl font-bold text-[#2D3A82]">Node.js 环境</h2>
+            </div>
+            <button 
+              onClick={refreshNodeEnv}
+              disabled={nodeLoading}
+              className={`p-2 rounded-md hover:bg-gray-100 transition-colors ${nodeLoading ? 'animate-spin' : ''}`}
+            >
+              <span className="material-symbols-outlined text-gray-400">refresh</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="p-4 bg-white rounded-lg border border-gray-200">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-gray-500 uppercase">Node.js 版本</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${nodeEnv?.nodeVersion ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {nodeEnv?.nodeVersion ? '已安装' : '未安装'}
+                  </span>
+                </div>
+                <div className="text-xl font-bold font-mono text-gray-800">
+                  {nodeEnv?.nodeVersion || '--'}
+                </div>
+                {!nodeEnv?.nodeVersion && (
+                  <button 
+                    onClick={handleInstallNode}
+                    disabled={nodeLoading}
+                    className="mt-3 w-full py-2 bg-emerald-600 text-white rounded-md text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {nodeLoading ? (installStatus || '正在安装...') : '一键安装 Node.js'}
+                  </button>
+                )}
+              </div>
+
+              <div className="p-4 bg-white rounded-lg border border-gray-200">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-gray-500 uppercase">pnpm 版本</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${nodeEnv?.pnpmVersion ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {nodeEnv?.pnpmVersion ? '已安装' : '未安装'}
+                  </span>
+                </div>
+                <div className="text-xl font-bold font-mono text-gray-800">
+                  {nodeEnv?.pnpmVersion || '--'}
+                </div>
+                {!nodeEnv?.pnpmVersion && nodeEnv?.nodeVersion && (
+                  <button 
+                    onClick={handleInstallPnpm}
+                    disabled={nodeLoading}
+                    className="mt-3 w-full py-2 bg-gray-700 text-white rounded-md text-sm font-bold hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    {nodeLoading ? (installStatus || '正在安装...') : '安装 pnpm'}
+                  </button>
+                )}
+              </div>
+          </div>
+
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-600 text-sm">language</span>
+                <span className="text-sm font-medium text-blue-800">当前镜像源</span>
+              </div>
+              <span className="text-xs font-mono text-blue-600 break-all ml-4">
+                {nodeEnv?.registry}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button 
+                onClick={() => handleSetRegistry('https://registry.npmjs.org/')}
+                disabled={registryLoading}
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-medium hover:border-blue-400 transition-all disabled:opacity-50"
+              >
+                NPM 官方源
+              </button>
+              <button 
+                onClick={() => handleSetRegistry('https://registry.npmmirror.com/')}
+                disabled={registryLoading}
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-medium hover:border-blue-400 transition-all disabled:opacity-50"
+              >
+                淘宝镜像
+              </button>
+              <button 
+                onClick={() => handleSetRegistry('https://mirrors.cloud.tencent.com/npm/')}
+                disabled={registryLoading}
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-medium hover:border-blue-400 transition-all disabled:opacity-50"
+              >
+                腾讯云镜像
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );

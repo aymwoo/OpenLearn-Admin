@@ -1,5 +1,6 @@
-use std::{fs, path::Path, thread};
+use std::{fs, path::Path, thread, net::TcpListener};
 use std::sync::Mutex;
+use std::collections::HashMap;
 
 use chrono::{DateTime, Local};
 use git2::{
@@ -9,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use sysinfo::{System, Disks};
 use std::env;
-use tauri::{command, Emitter, State, Window};
+use tauri::{command, Emitter, State, Window, Manager};
 
 struct AppState {
     system: Mutex<System>,
@@ -141,6 +142,18 @@ struct WebServiceInfo {
     asp_net_thread_count: i32,
     courses: Option<i32>,
     db_size: Option<String>,
+}
+
+struct ProcessManager {
+    processes: Mutex<HashMap<String, std::process::Child>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NodeEnvStatus {
+    node_version: Option<String>,
+    pnpm_version: Option<String>,
+    registry: String,
 }
 
 fn default_branch(branch: &str) -> &str {
@@ -1289,6 +1302,286 @@ fn parse_connection_string(conn_str: &str) -> (String, String) {
 }
 
 #[command]
+async fn check_node_env() -> Result<NodeEnvStatus, String> {
+    let node_version = thread::spawn(|| {
+        std::process::Command::new("node")
+            .arg("-v")
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+    }).join().map_err(|_| "检测 Node.js 线程崩溃".to_string())?;
+
+    let pnpm_version = thread::spawn(|| {
+        std::process::Command::new("pnpm")
+            .arg("-v")
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+    }).join().map_err(|_| "检测 pnpm 线程崩溃".to_string())?;
+
+    let registry = thread::spawn(|| {
+        std::process::Command::new("npm")
+            .args(["config", "get", "registry"])
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| "https://registry.npmjs.org/".to_string())
+    }).join().map_err(|_| "检测镜像源线程崩溃".to_string())?;
+
+    Ok(NodeEnvStatus {
+        node_version,
+        pnpm_version,
+        registry,
+    })
+}
+
+#[command]
+async fn run_project_task(
+    window: Window,
+    state: State<'_, ProcessManager>,
+    task: String,
+    path: String,
+) -> Result<String, String> {
+    let app_handle = window.app_handle();
+    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let tools_dir = data_dir.join("tools");
+    let project_path = std::path::Path::new(&path);
+
+    // 自动检测包管理器
+    let use_pnpm = project_path.join("pnpm-lock.yaml").exists();
+    let cmd_name = if use_pnpm { "pnpm" } else { "npm" };
+
+    // 寻找本地 Node.js 路径
+    let mut node_bin_path = None;
+    if tools_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&tools_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with("node-v") {
+                    let p = if cfg!(target_os = "windows") {
+                        entry.path()
+                    } else {
+                        entry.path().join("bin")
+                    };
+                    if p.exists() {
+                        node_bin_path = Some(p);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let is_dev = task == "dev";
+    let mut cmd = std::process::Command::new(cmd_name);
+    
+    // 继承当前环境变量 (确保 X11/Wayland 正常工作)
+    cmd.envs(std::env::vars());
+    
+    // 注入路径
+    if let Some(bin_path) = node_bin_path {
+        let current_path = std::env::var_os("PATH").unwrap_or_default();
+        let mut new_path = bin_path.clone().into_os_string();
+        if cfg!(target_os = "windows") {
+            new_path.push(";");
+        } else {
+            new_path.push(":");
+        }
+        new_path.push(current_path);
+        cmd.env("PATH", new_path);
+    }
+
+    cmd.current_dir(&path);
+    if task == "install" {
+        cmd.arg("install");
+    } else {
+        cmd.args(["run", &task]);
+    }
+
+    if is_dev {
+        // 对于 dev，我们需要异步运行并管理进程
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        
+        let mut child = cmd.spawn().map_err(|e| format!("启动失败: {}", e))?;
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
+
+        // 停止之前的同名进程
+        {
+            let mut procs = state.processes.lock().unwrap();
+            if let Some(mut old_child) = procs.remove(&task) {
+                let _ = old_child.kill();
+            }
+            procs.insert(task.clone(), child);
+        }
+
+        // 异步读取日志
+        let win_clone = window.clone();
+        thread::spawn(move || {
+            let reader = std::io::BufReader::new(stdout);
+            for line in std::io::BufRead::lines(reader).flatten() {
+                win_clone.emit("service-log", line).ok();
+            }
+        });
+
+        let win_clone_err = window.clone();
+        thread::spawn(move || {
+            let reader = std::io::BufReader::new(stderr);
+            for line in std::io::BufRead::lines(reader).flatten() {
+                win_clone_err.emit("service-log", format!("[ERROR] {}", line)).ok();
+            }
+        });
+
+        Ok("服务已启动".to_string())
+    } else {
+        // 对于 install/build，同步运行并返回结果
+        window.emit("service-log", format!("开始执行任务: {}", task)).ok();
+        let output = cmd.output().map_err(|e| format!("执行失败: {}", e))?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        
+        for line in stdout.lines() {
+            window.emit("service-log", line.to_string()).ok();
+        }
+        for line in stderr.lines() {
+            window.emit("service-log", format!("[ERR] {}", line)).ok();
+        }
+
+        if output.status.success() {
+            Ok(format!("任务 {} 执行成功", task))
+        } else {
+            Err(format!("任务 {} 执行失败", task))
+        }
+    }
+}
+
+#[command]
+async fn stop_project_task(state: State<'_, ProcessManager>, task: String) -> Result<String, String> {
+    let mut procs = state.processes.lock().unwrap();
+    if let Some(mut child) = procs.remove(&task) {
+        child.kill().map_err(|e| format!("停止失败: {}", e))?;
+        Ok("服务已停止".to_string())
+    } else {
+        Err("服务未在运行".to_string())
+    }
+}
+
+#[command]
+async fn is_port_occupied(port: u16) -> Result<bool, String> {
+    match TcpListener::bind(format!("127.0.0.1:{}", port)) {
+        Ok(_) => Ok(false),
+        Err(_) => Ok(true),
+    }
+}
+
+#[command]
+async fn set_npm_registry(url: String) -> Result<String, String> {
+    thread::spawn(move || {
+        let output = std::process::Command::new("npm")
+            .args(["config", "set", "registry", &url])
+            .output()
+            .map_err(|e| format!("无法执行 npm 命令: {}", e))?;
+
+        if output.status.success() {
+            Ok(format!("成功切换镜像源至: {}", url))
+        } else {
+            Err(format!("切换失败: {}", String::from_utf8_lossy(&output.stderr)))
+        }
+    }).join().map_err(|_| "设置镜像源线程崩溃".to_string())?
+}
+
+#[command]
+async fn install_node_env(window: Window) -> Result<String, String> {
+    let is_win = cfg!(target_os = "windows");
+    let node_url = if is_win {
+        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-win-x64.zip"
+    } else {
+        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-linux-x64.tar.xz"
+    };
+
+    window.emit("env-install-progress", "正在下载 Node.js...").ok();
+
+    let app_handle = window.app_handle();
+    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let tools_dir = data_dir.join("tools");
+    std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
+
+    let filename = if is_win { "node.zip" } else { "node.tar.xz" };
+    let download_path = tools_dir.join(filename);
+
+    // 下载文件
+    let response = reqwest::get(node_url).await.map_err(|e| format!("下载失败: {}", e))?;
+    let content = response.bytes().await.map_err(|e| format!("读取内容失败: {}", e))?;
+    std::fs::write(&download_path, &content).map_err(|e| format!("写入文件失败: {}", e))?;
+
+    window.emit("env-install-progress", "正在解压 Node.js...").ok();
+
+    // 解压
+    if is_win {
+        std::process::Command::new("powershell")
+            .args([
+                "-Command",
+                &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", download_path.display(), tools_dir.display())
+            ])
+            .output()
+            .map_err(|e| format!("解压失败: {}", e))?;
+    } else {
+        std::process::Command::new("tar")
+            .args([
+                "-xJf",
+                &download_path.to_string_lossy(),
+                "-C",
+                &tools_dir.to_string_lossy()
+            ])
+            .output()
+            .map_err(|e| format!("解压失败: {}", e))?;
+    }
+
+    // 清理下载文件
+    let _ = std::fs::remove_file(download_path);
+
+    window.emit("env-install-progress", "Node.js 安装完成").ok();
+    Ok("Node.js 安装成功".to_string())
+}
+
+#[command]
+async fn install_pnpm(window: Window) -> Result<String, String> {
+    window.emit("env-install-progress", "正在安装 pnpm...").ok();
+
+    thread::spawn(move || {
+        let output = std::process::Command::new("npm")
+            .args(["install", "-g", "pnpm"])
+            .output()
+            .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
+
+        if output.status.success() {
+            Ok("pnpm 安装成功".to_string())
+        } else {
+            Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+        }
+    }).join().map_err(|_| "安装 pnpm 线程崩溃".to_string())?
+}
+
+#[command]
 fn is_windows() -> bool {
     cfg!(target_os = "windows")
 }
@@ -1319,7 +1612,17 @@ pub fn run() {
             get_database_connection_status,
             is_windows,
             check_local_repo,
+            check_node_env,
+            set_npm_registry,
+            install_node_env,
+            install_pnpm,
+            run_project_task,
+            stop_project_task,
+            is_port_occupied,
         ])
+        .manage(ProcessManager {
+            processes: Mutex::new(HashMap::new()),
+        })
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

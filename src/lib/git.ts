@@ -253,6 +253,44 @@ export async function getSystemInfo(url?: string): Promise<SystemInfo> {
  * 使用 Tauri 后端进行请求以绕过浏览器 CORS 限制
  * 返回 null 表示连接失败或服务未启动，由页面处理错误显示
  */
+export interface NodeEnvStatus {
+  nodeVersion: string | null;
+  pnpmVersion: string | null;
+  registry: string;
+}
+
+export async function checkNodeEnv(): Promise<NodeEnvStatus> {
+  return await invoke<NodeEnvStatus>('check_node_env');
+}
+
+export async function setNpmRegistry(url: string): Promise<string> {
+  return await invoke<string>('set_npm_registry', { url });
+}
+
+export async function installNodeEnv(): Promise<string> {
+  return await invoke<string>('install_node_env');
+}
+
+export async function installPnpm(): Promise<string> {
+  return await invoke<string>('install_pnpm');
+}
+
+export async function listenEnvInstallProgress(handler: (msg: string) => void): Promise<UnlistenFn> {
+  return listen<string>('env-install-progress', (event) => handler(event.payload));
+}
+
+export async function runProjectTask(task: string, path: string): Promise<string> {
+  return await invoke<string>('run_project_task', { task, path });
+}
+
+export async function stopProjectTask(task: string): Promise<string> {
+  return await invoke<string>('stop_project_task', { task });
+}
+
+export async function isPortOccupied(port: number): Promise<boolean> {
+  return await invoke<boolean>('is_port_occupied', { port });
+}
+
 export async function getWebServiceInfo(url: string): Promise<WebServiceInfo | null> {
   const result = await invoke<WebServiceInfo | null>('get_web_service_info', { url });
   if (!result) {

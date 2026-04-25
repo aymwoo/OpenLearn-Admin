@@ -20,7 +20,12 @@ import {
   runSmartPull,
   type WebServiceInfo,
   isWindowsHost,
+  runProjectTask,
+  stopProjectTask,
+  listenServiceLog,
+  isPortOccupied,
 } from "@/lib/git";
+import { open as openUrl } from '@tauri-apps/plugin-shell';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -51,6 +56,8 @@ export default function Dashboard() {
   const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<DbConnectionStatus | null>(null);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [isDevActive, setIsDevActive] = useState(false);
+  const [runningTask, setRunningTask] = useState<string | null>(null);
   const [isWindows, setIsWindows] = useState(false);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
@@ -120,6 +127,10 @@ const applyDashboardData = (data: DashboardData) => {
 
     hydrate();
 
+    const unlistenLog = listenServiceLog((log) => {
+      setTerminalLogs(prev => [...prev.slice(-100), log]);
+    });
+
     listenPullProgress((nextProgress) => {
       if (mounted) {
         setProgress(nextProgress);
@@ -152,6 +163,7 @@ const applyDashboardData = (data: DashboardData) => {
     return () => {
       mounted = false;
       unlisten?.();
+      unlistenLog.then(fn => fn());
     };
   }, []);
 
@@ -258,6 +270,55 @@ const applyDashboardData = (data: DashboardData) => {
         label: nextMessage,
       }));
       setLoading(false);
+    }
+  };
+
+  const handleProjectTask = async (task: string) => {
+    if (!config?.localPath) return;
+
+    // 端口占用检测逻辑
+    if (task === 'dev' && config.webServiceUrl) {
+      try {
+        const url = new URL(config.webServiceUrl);
+        const port = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+        const occupied = await isPortOccupied(port);
+        if (occupied) {
+          setTerminalLogs(prev => [...prev, `[WARNING] 端口 ${port} 已被占用！服务可能无法在预期端口启动。`]);
+          const confirmStart = window.confirm(`警告：端口 ${port} 已被占用，可能是其他服务正在运行。是否仍要尝试启动？`);
+          if (!confirmStart) {
+            setTerminalLogs(prev => [...prev, '>>> 操作已取消']);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('端口解析失败', e);
+      }
+    }
+
+    setRunningTask(task);
+    try {
+      if (task === 'stop') {
+        await stopProjectTask('dev');
+        setIsDevActive(false);
+        setTerminalLogs(prev => [...prev, '>>> 服务已手动停止']);
+      } else {
+        const result = await runProjectTask(task, config.localPath);
+        if (task === 'dev') setIsDevActive(true);
+        setTerminalLogs(prev => [...prev, `>>> 开始执行: ${task}`, result]);
+      }
+    } catch (err) {
+      setTerminalLogs(prev => [...prev, `[ERROR] ${err}`]);
+    }
+    setRunningTask(null);
+  };
+
+  const handleOpenBrowser = async () => {
+    if (config?.webServiceUrl) {
+      try {
+        await openUrl(config.webServiceUrl);
+      } catch (err) {
+        setTerminalLogs(prev => [...prev, `[ERROR] 无法打开浏览器: ${err}`]);
+      }
     }
   };
 
@@ -637,6 +698,127 @@ const applyDashboardData = (data: DashboardData) => {
                       </span>
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 1.2: Project Lifecycle Management */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="bg-surface-container-lowest rounded-xl p-8 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col space-y-6">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary">rocket_launch</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold font-headline text-on-surface">项目运维管理</h2>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <div className={`w-2 h-2 rounded-full ${isDevActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                        <p className="text-sm text-on-surface-variant font-medium">
+                          {isDevActive ? '开发服务运行中' : '服务未启动'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setTerminalLogs([])}
+                    className="p-2 hover:bg-surface-container-low rounded-xl transition-colors text-on-surface-variant"
+                    title="清空日志"
+                  >
+                    <span className="material-symbols-outlined">delete_sweep</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <button 
+                    onClick={() => handleProjectTask('install')}
+                    disabled={!!runningTask}
+                    className="flex flex-col items-center justify-center p-4 bg-surface-container-low/50 rounded-2xl border border-outline-variant/10 hover:border-primary transition-all group disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">package_2</span>
+                    <span className="text-xs font-bold text-on-surface">安装依赖</span>
+                  </button>
+                  
+                  {!isDevActive ? (
+                    <button 
+                      onClick={() => handleProjectTask('dev')}
+                      disabled={!!runningTask}
+                      className="flex flex-col items-center justify-center p-4 bg-primary/5 rounded-2xl border border-primary/10 hover:bg-primary/10 transition-all group disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-primary mb-2">play_arrow</span>
+                      <span className="text-xs font-bold text-primary">启动服务</span>
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => handleProjectTask('stop')}
+                      disabled={!!runningTask}
+                      className="flex flex-col items-center justify-center p-4 bg-rose-500/5 rounded-2xl border border-rose-500/10 hover:bg-rose-500/10 transition-all group disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-rose-600 mb-2 animate-pulse">stop</span>
+                      <span className="text-xs font-bold text-rose-600">停止服务</span>
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={() => handleProjectTask('build')}
+                    disabled={!!runningTask}
+                    className="flex flex-col items-center justify-center p-4 bg-surface-container-low/50 rounded-2xl border border-outline-variant/10 hover:border-primary transition-all group disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">build_circle</span>
+                    <span className="text-xs font-bold text-on-surface">执行构建</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleProjectTask('dev')}
+                    disabled={!isDevActive || !!runningTask}
+                    className="flex flex-col items-center justify-center p-4 bg-surface-container-low/50 rounded-2xl border border-outline-variant/10 hover:border-primary transition-all group disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-2">restart_alt</span>
+                    <span className="text-xs font-bold text-on-surface">重启服务</span>
+                  </button>
+
+                  <button 
+                    onClick={handleOpenBrowser}
+                    disabled={!config?.webServiceUrl}
+                    className="flex flex-col items-center justify-center p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10 hover:bg-blue-500/10 transition-all group disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-blue-600 mb-2">open_in_new</span>
+                    <span className="text-xs font-bold text-blue-600">访问服务</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Console Output */}
+              <div className="bg-[#0f172a] rounded-xl p-5 font-mono text-sm shadow-inner flex flex-col h-[300px] border border-slate-800">
+                <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
+                    </div>
+                    <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase ml-2">Terminal Output</span>
+                  </div>
+                  {runningTask && (
+                    <span className="text-[10px] text-primary animate-pulse font-bold uppercase">Executing {runningTask}...</span>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar scroll-smooth">
+                  {terminalLogs.length === 0 ? (
+                    <p className="text-slate-600 italic text-xs">Waiting for task signals...</p>
+                  ) : (
+                    terminalLogs.map((log, i) => (
+                      <p key={i} className={`break-all leading-relaxed text-[13px] ${
+                        log.startsWith('>>>') ? 'text-blue-400 font-bold' : 
+                        log.startsWith('[ERROR]') || log.startsWith('[ERR]') ? 'text-rose-400' : 
+                        'text-slate-300'
+                      }`}>
+                        <span className="opacity-20 mr-2 select-none">{i + 1}</span>
+                        {log}
+                      </p>
+                    ))
+                  )}
+                  <div ref={terminalEndRef} />
                 </div>
               </div>
             </div>
