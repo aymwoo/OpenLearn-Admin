@@ -2,7 +2,13 @@
 
 所有对本项目的显著更改都将记录在此文件中。
 
+## [0.2.4] - 2026-04-25
+
+### 修复
+- **Tauri 配置修复**：移除了 `tauri.conf.json` 中导致反序列化失败的空插件配置（`dialog`, `log`），解决了程序启动时的 `invalid type: map, expected unit` 错误。
+
 ## [0.2.3] - 2026-04-25
+
 
 ### 修复
 - **Tauri 配置修复**：纠正了 `tauri.conf.json` 中 `shell` 插件的配置格式，解决了 Tauri 2.x 下 `plugins.shell` 反序列化失败导致的程序无法启动问题。
