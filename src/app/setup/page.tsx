@@ -160,7 +160,7 @@ export default function SetupWizard() {
     try {
       await saveConfig(config);
       setSyncStarted(true);
-      setProgress({ stage: 'clone', percent: 5, label: '正在准备同步仓库...' });
+      setProgress({ stage: 'cloning', percent: 5, label: '正在准备同步仓库...' });
       // runSmartPull 在 Rust 后端使用 thread::spawn 运行，不会阻塞
       runSmartPull(config).catch(() => {});
     } catch (err) {
