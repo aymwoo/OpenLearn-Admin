@@ -1,0 +1,3 @@
+## 2025-04-25 - [Optimize sysinfo state caching]
+**Learning:** In Tauri backends that poll system state frequently, calling `System::refresh_all()` and repeatedly instantiating `Disks::new_with_refreshed_list()` are significant performance bottlenecks. The `sysinfo` v0.36.1 crate requires `Disks` objects to be maintained in state and refreshed via `disks.refresh(true)` instead.
+**Action:** When working with system metrics, cache `Disks` (and `System`) inside the managed `AppState`, and selectively update only the required metrics (`refresh_cpu_usage()`, `refresh_memory()`) instead of doing a full refresh or recreating disk structs.

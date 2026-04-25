@@ -13,6 +13,7 @@ use tauri::{command, Emitter, State, Window};
 
 struct AppState {
     system: Mutex<System>,
+    disks: Mutex<Disks>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,10 +29,15 @@ struct SystemInfo {
 
 #[command]
 fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
+    // Optimization: Only refresh CPU and Memory instead of everything
     let mut sys = state.system.lock().map_err(|e| format!("锁错误: {}", e))?;
-    sys.refresh_all();
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
 
-    let disks = Disks::new_with_refreshed_list();
+    // Optimization: Reuse Disks struct instead of recreating it
+    let mut disks = state.disks.lock().map_err(|e| format!("锁错误: {}", e))?;
+    disks.refresh(true);
+
     let mut disk_total = 0;
     let mut disk_available = 0;
     for disk in disks.list() {
@@ -1435,6 +1441,7 @@ pub fn run() {
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
+            disks: Mutex::new(Disks::new_with_refreshed_list()),
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
