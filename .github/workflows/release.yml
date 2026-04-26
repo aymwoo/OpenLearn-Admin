@@ -94,6 +94,7 @@ jobs:
           mkdir -p "$MSI_TARGET_DIR"
           rm -f "$MSI_TARGET_DIR"/*.msi
           cp "$MSI_SOURCE" "$MSI_TARGET_DIR/"
+          echo "Windows full bundle contract: assets-windows -> resources/nodejs"
           echo "Node.js MSI copied successfully: $MSI_TARGET_DIR/${WINDOWS_FULL_NODE_MSI_NAME}"
 
       - name: Build (standard targets)
