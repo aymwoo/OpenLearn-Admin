@@ -1,11 +1,12 @@
 use std::{fs, path::Path, thread};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::net::TcpListener;
 
 use chrono::{DateTime, Local};
 use git2::{
-    build::CheckoutBuilder, AnnotatedCommit, Cred, FetchOptions, Oid, RemoteCallbacks, Repository,
+    build::CheckoutBuilder, AnnotatedCommit, Cred, FetchOptions, Oid, RemoteCallbacks, RemoteRedirect, Repository,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +18,7 @@ struct AppState {
     system: Mutex<System>,
     is_syncing: Arc<Mutex<bool>>,
     current_progress: Arc<Mutex<FetchProgress>>,
+    cancel_flag: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -280,37 +282,243 @@ fn open_repo(path: &str) -> Result<Repository, String> {
     Repository::open(path).map_err(|e| format!("无法打开仓库: {e}"))
 }
 
+struct ProgressCallbackContext {
+    window: Window,
+    cache: Option<Arc<Mutex<FetchProgress>>>,
+    cancel_flag: Arc<AtomicBool>,
+    stage: String,
+    percent_range: (u8, u8),
+}
 
-fn remote_callbacks() -> RemoteCallbacks<'static> {
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_url, username, _allowed| {
-        if let Some(name) = username {
-            Cred::ssh_key_from_agent(name)
-        } else {
-            Cred::default()
+fn is_http_remote(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+fn is_gitee_remote(url: &str) -> bool {
+    url.to_ascii_lowercase().contains("gitee.com")
+}
+
+fn is_ssh_remote(url: &str) -> bool {
+    let trimmed = url.trim();
+    trimmed.starts_with("git@")
+        || trimmed.starts_with("ssh://")
+        || trimmed.starts_with("ssh+git://")
+}
+
+fn https_auth_guidance(remote_url: Option<&str>) -> String {
+    match remote_url {
+        Some(url) if is_gitee_remote(url) => {
+            "Gitee HTTPS 认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT".to_string()
         }
+        Some(url) if is_http_remote(url) => {
+            "HTTPS 远端认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT".to_string()
+        }
+        _ => "远端认证失败，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT".to_string(),
+    }
+}
+
+fn https_auth_error(remote_url: Option<&str>) -> git2::Error {
+    let message = https_auth_guidance(remote_url);
+    git2::Error::new(git2::ErrorCode::Auth, git2::ErrorClass::Http, &message)
+}
+
+fn resolve_remote_credentials(
+    url: Option<&str>,
+    username: Option<&str>,
+    allowed: git2::CredentialType,
+) -> Result<Cred, git2::Error> {
+    let remote_url = url.unwrap_or_default();
+
+    if is_ssh_remote(remote_url) {
+        if allowed.contains(git2::CredentialType::USERNAME) {
+            return Cred::username(username.unwrap_or("git"));
+        }
+
+        if allowed.contains(git2::CredentialType::SSH_KEY) {
+            let user = username.unwrap_or("git");
+            if let Ok(cred) = Cred::ssh_key_from_agent(user) {
+                return Ok(cred);
+            }
+        }
+    }
+
+    if is_http_remote(remote_url) {
+        if allowed.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            let config = git2::Config::open_default().map_err(|_| https_auth_error(url))?;
+            return Cred::credential_helper(&config, remote_url, username)
+                .map_err(|_| https_auth_error(url));
+        }
+
+        if allowed.contains(git2::CredentialType::DEFAULT) {
+            return Err(https_auth_error(url));
+        }
+    }
+
+    if allowed.contains(git2::CredentialType::DEFAULT) {
+        Cred::default()
+    } else {
+        Err(git2::Error::new(
+            git2::ErrorCode::Auth,
+            git2::ErrorClass::Http,
+            "无法提供有效的认证凭据，请使用 SSH 方式克隆或配置凭据",
+        ))
+    }
+}
+
+fn is_redirect_or_auth_replay_error(error: &git2::Error) -> bool {
+    let message = error.message().to_ascii_lowercase();
+    message.contains("too many redirects") || message.contains("authentication replays")
+}
+
+fn normalize_git_operation_error(
+    context: &str,
+    remote_url: Option<&str>,
+    error: git2::Error,
+) -> String {
+    if is_redirect_or_auth_replay_error(&error)
+        || (error.code() == git2::ErrorCode::Auth && remote_url.is_some_and(is_http_remote))
+    {
+        return format!("{context}: {}", https_auth_guidance(remote_url));
+    }
+
+    format!("{context}: {error}")
+}
+
+fn build_remote_callbacks(progress: Option<ProgressCallbackContext>) -> RemoteCallbacks<'static> {
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(move |url, username, allowed| {
+        resolve_remote_credentials(Some(url), username, allowed)
     });
-    callbacks.transfer_progress(|_progress| {
-        true
-    });
+
+    if let Some(progress) = progress {
+        let ProgressCallbackContext {
+            window,
+            cache,
+            cancel_flag,
+            stage,
+            percent_range,
+        } = progress;
+        let (min_percent, max_percent) = percent_range;
+
+        callbacks.transfer_progress(move |p| {
+            if cancel_flag.load(Ordering::SeqCst) {
+                return false;
+            }
+            let received_objects = p.received_objects();
+            let total_objects = p.total_objects();
+            let received_bytes = p.received_bytes();
+
+            let git_pct = if total_objects > 0 {
+                received_objects as f64 / total_objects as f64
+            } else {
+                0.0
+            };
+            let percent =
+                (min_percent as f64 + git_pct * (max_percent - min_percent) as f64).min(99.0)
+                    as u8;
+
+            let size_label = format_bytes(received_bytes as u64);
+            let label = if total_objects > 0 {
+                format!("{} ({}, 对象 {}/{})", stage, size_label, received_objects, total_objects)
+            } else {
+                format!("{} ({})", stage, size_label)
+            };
+
+            let progress = FetchProgress {
+                stage: stage.clone(),
+                percent,
+                label,
+                result: None,
+                received_bytes: Some(received_bytes as u64),
+                total_objects: Some(total_objects as u32),
+                received_objects: Some(received_objects as u32),
+            };
+
+            if let Some(ref cache) = cache {
+                if let Ok(mut lock) = cache.lock() {
+                    *lock = progress.clone();
+                }
+            }
+
+            window.emit(PROGRESS_EVENT, progress).ok();
+            true
+        });
+    } else {
+        callbacks.transfer_progress(|_| true);
+    }
+
     callbacks
 }
 
+
+fn remote_callbacks() -> RemoteCallbacks<'static> {
+    build_remote_callbacks(None)
+}
+
+fn create_progress_fetch_options(
+    window: &Window,
+    cache: Option<&Arc<Mutex<FetchProgress>>>,
+    cancel_flag: &Arc<AtomicBool>,
+    stage: &str,
+    percent_range: (u8, u8),
+) -> FetchOptions<'static> {
+    let callbacks = build_remote_callbacks(Some(ProgressCallbackContext {
+        window: window.clone(),
+        cache: cache.cloned(),
+        cancel_flag: cancel_flag.clone(),
+        stage: stage.to_string(),
+        percent_range,
+    }));
+
+    let mut options = FetchOptions::new();
+    options.remote_callbacks(callbacks);
+    options.follow_redirects(RemoteRedirect::Initial);
+    options
+}
+
+fn format_bytes(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1}GB", bytes as f64 / 1024.0 / 1024.0 / 1024.0)
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.1}MB", bytes as f64 / 1024.0 / 1024.0)
+    } else if bytes >= 1024 {
+        format!("{}KB", bytes / 1024)
+    } else {
+        format!("{}B", bytes)
+    }
+}
+
 fn fetch_branch(repo: &Repository, branch: &str) -> Result<(), String> {
+    let mut options = FetchOptions::new();
+    options.remote_callbacks(remote_callbacks());
+    options.follow_redirects(RemoteRedirect::Initial);
+    fetch_branch_with_opts(repo, branch, Some(options))
+}
+
+fn fetch_branch_with_opts(repo: &Repository, branch: &str, fetch_options: Option<FetchOptions<'_>>) -> Result<(), String> {
     let branch_name = default_branch(branch);
-    let mut fetch_options = FetchOptions::new();
-    fetch_options.remote_callbacks(remote_callbacks());
+    let mut options = fetch_options.unwrap_or_else(|| {
+        let mut opts = FetchOptions::new();
+        opts.remote_callbacks(remote_callbacks());
+        opts.follow_redirects(RemoteRedirect::Initial);
+        opts
+    });
 
     let mut remote = repo
         .find_remote("origin")
         .map_err(|e| format!("找不到远端 origin: {e}"))?;
+    let remote_url = remote.url().map(str::to_string);
 
-    // 使用显式 refspec 确保更新远程跟踪分支
     let refspec = format!("+refs/heads/{}:refs/remotes/origin/{}", branch_name, branch_name);
-    
+
     remote
-        .fetch(&[&refspec], Some(&mut fetch_options), None)
-        .map_err(|e| format!("拉取远端引用失败 ({branch_name}): {e}"))
+        .fetch(&[&refspec], Some(&mut options), None)
+        .map_err(|e| normalize_git_operation_error(
+            &format!("拉取远端引用失败 ({branch_name})"),
+            remote_url.as_deref(),
+            e,
+        ))
 }
 
 fn get_head_branch(repo: &Repository) -> Result<String, String> {
@@ -640,7 +848,8 @@ fn emit_progress(window: &Window, cache: Option<&Mutex<FetchProgress>>, stage: &
 
 
 #[command]
-fn git_clone(url: String, path: String, branch: String) -> Result<String, String> {
+fn git_clone(window: Window, state: State<'_, AppState>, url: String, path: String, branch: String) -> Result<String, String> {
+    state.cancel_flag.store(false, Ordering::SeqCst);
     let target_path = Path::new(&path);
     let branch = default_branch(&branch).to_string();
 
@@ -654,6 +863,10 @@ fn git_clone(url: String, path: String, branch: String) -> Result<String, String
                 .is_none();
 
             if !is_empty {
+                if state.cancel_flag.load(Ordering::SeqCst) {
+                    return Err("操作已取消".to_string());
+                }
+                emit_progress(&window, None, "cloning", 5, "正在备份已有目录")?;
                 let backup_path = format!(
                     "{}.backup-{}",
                     &path,
@@ -662,19 +875,55 @@ fn git_clone(url: String, path: String, branch: String) -> Result<String, String
                 copy_dir_recursive(target_path, Path::new(&backup_path))
                     .map_err(|e| format!("备份失败: {e}"))?;
             }
+            if state.cancel_flag.load(Ordering::SeqCst) {
+                return Err("操作已取消".to_string());
+            }
+            emit_progress(&window, None, "cloning", 10, "正在清理目录")?;
             fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
         }
     }
 
+    if state.cancel_flag.load(Ordering::SeqCst) {
+        return Err("操作已取消".to_string());
+    }
+    emit_progress(&window, None, "cloning", 15, "正在克隆仓库")?;
     git2::build::RepoBuilder::new()
         .branch(&branch)
-        .fetch_options({
-            let mut options = FetchOptions::new();
-            options.remote_callbacks(remote_callbacks());
-            options
-        })
+        .fetch_options(create_progress_fetch_options(&window, None, &state.cancel_flag, "cloning", (20, 95)))
         .clone(&url, Path::new(&path))
-        .map_err(|e| format!("克隆仓库失败: {e}"))?;
+        .map_err(|e| {
+            let message = normalize_git_operation_error("克隆仓库失败", Some(&url), e);
+            let is_cancelled = state.cancel_flag.load(Ordering::SeqCst);
+            let _ = window.emit(
+                PROGRESS_EVENT,
+                FetchProgress {
+                    stage: if is_cancelled { "idle" } else { "error" }.to_string(),
+                    percent: 0,
+                    label: if is_cancelled { "操作已取消".to_string() } else { message.clone() },
+                    result: None,
+                    received_bytes: None,
+                    total_objects: None,
+                    received_objects: None,
+                },
+            );
+            message
+        })?;
+
+    if state.cancel_flag.load(Ordering::SeqCst) {
+        return Err("操作已取消".to_string());
+    }
+    let _ = window.emit(
+        PROGRESS_EVENT,
+        FetchProgress {
+            stage: "done".to_string(),
+            percent: 100,
+            label: "克隆成功".to_string(),
+            result: None,
+            received_bytes: None,
+            total_objects: None,
+            received_objects: None,
+        },
+    );
     Ok("Clone successful".to_string())
 }
 
@@ -747,11 +996,17 @@ fn git_status(path: String, branch: Option<String>) -> Result<serde_json::Value,
         let mut remote = repo
             .find_remote(&remote_name)
             .map_err(|e| format!("找不到远程 {}: {}", remote_name, e))?;
+        let remote_url = remote.url().map(str::to_string);
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(remote_callbacks());
+        fetch_options.follow_redirects(RemoteRedirect::Initial);
         let refspec = format!("+refs/heads/{}:refs/remotes/{}/{}", branch, remote_name, branch);
         remote.fetch(&[&refspec], Some(&mut fetch_options), None)
-            .map_err(|e| format!("拉取失败 ({}/{}): {}", remote_name, branch, e))?;
+            .map_err(|e| normalize_git_operation_error(
+                &format!("拉取失败 ({}/{})", remote_name, branch),
+                remote_url.as_deref(),
+                e,
+            ))?;
     }
 
     let local_oid = repo
@@ -1176,6 +1431,24 @@ fn get_sync_progress(state: State<'_, AppState>) -> Result<FetchProgress, String
 }
 
 #[command]
+fn cancel_sync(window: Window, state: State<'_, AppState>) -> Result<(), String> {
+    state.cancel_flag.store(true, Ordering::SeqCst);
+    let _ = window.emit(
+        PROGRESS_EVENT,
+        FetchProgress {
+            stage: "idle".to_string(),
+            percent: 0,
+            label: "操作已取消".to_string(),
+            result: None,
+            received_bytes: None,
+            total_objects: None,
+            received_objects: None,
+        },
+    );
+    Ok(())
+}
+
+#[command]
 fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig) -> Result<(), String> {
     {
         let is_syncing = state.is_syncing.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
@@ -1184,8 +1457,10 @@ fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig)
         }
     }
 
+    state.cancel_flag.store(false, Ordering::SeqCst);
     let is_syncing_arc = state.is_syncing.clone();
     let progress_cache = state.current_progress.clone();
+    let cancel_flag = state.cancel_flag.clone();
     
     std::thread::spawn(move || {
         {
@@ -1194,7 +1469,7 @@ fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig)
             }
         }
 
-        let result = run_smart_pull_logic(&window, Some(&progress_cache), config);
+        let result = run_smart_pull_logic(&window, Some(&progress_cache), &cancel_flag, config);
 
         {
             if let Ok(mut lock) = is_syncing_arc.lock() {
@@ -1218,12 +1493,13 @@ fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig)
                 );
             }
             Err(e) => {
+                let is_cancelled = cancel_flag.load(Ordering::SeqCst);
                 let _ = window.emit(
                     PROGRESS_EVENT,
                     FetchProgress {
-                        stage: "error".to_string(),
+                        stage: if is_cancelled { "idle" } else { "error" }.to_string(),
                         percent: 0,
-                        label: e.clone(),
+                        label: if is_cancelled { "操作已取消".to_string() } else { e.clone() },
                         result: None,
                         received_bytes: None,
                         total_objects: None,
@@ -1237,13 +1513,14 @@ fn run_smart_pull(window: Window, state: State<'_, AppState>, config: GitConfig)
     Ok(())
 }
 
-fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, config: GitConfig) -> Result<PullResult, String> {
+fn run_smart_pull_logic(window: &Window, cache: Option<&Arc<Mutex<FetchProgress>>>, cancel_flag: &Arc<AtomicBool>, config: GitConfig) -> Result<PullResult, String> {
     ensure_config(&config)?;
 
     let web_config_path = Path::new(&config.local_path).join("web.config");
     let mut web_config_backup: Option<Vec<u8>> = None;
     if config.auto_restore_web_config && web_config_path.exists() {
-        emit_progress(&window, cache, "backup", 5, "正在暂存 web.config")?;
+        if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+        emit_progress(&window, cache.map(|c| c.as_ref()), "backup", 5, "正在暂存 web.config")?;
         web_config_backup = fs::read(&web_config_path).ok();
         if web_config_backup.is_some() {
             window.emit("service-log", "[SYSTEM] 已暂存本地 web.config 文件").ok();
@@ -1252,7 +1529,8 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
 
     let target_path = Path::new(&config.local_path);
     if !is_valid_git_repo(target_path) {
-        emit_progress(&window, cache, "cloning", 10, "正在准备克隆仓库")?;
+        if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+        emit_progress(&window, cache.map(|c| c.as_ref()), "cloning", 10, "正在准备克隆仓库")?;
 
         if target_path.exists() && !is_valid_git_repo(target_path) {
             let is_empty = fs::read_dir(target_path)
@@ -1263,7 +1541,8 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
                 .is_none();
 
             if !is_empty {
-                emit_progress(&window, cache, "backup", 20, "正在备份现有目录")?;
+                if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+                emit_progress(&window, cache.map(|c| c.as_ref()), "backup", 20, "正在备份现有目录")?;
                 let backup_path = format!(
                     "{}.backup-{}",
                     &config.local_path,
@@ -1275,24 +1554,23 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
             fs::remove_dir_all(target_path).map_err(|e| format!("清理目录失败: {e}"))?;
         }
 
-        emit_progress(&window, cache, "cloning", 50, "正在克隆仓库")?;
+        if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+        emit_progress(&window, cache.map(|c| c.as_ref()), "cloning", 20, "正在克隆仓库")?;
         let branch = default_branch(&config.branch).to_string();
+        let clone_fetch_opts = create_progress_fetch_options(&window, cache, cancel_flag, "cloning", (20, 95));
         git2::build::RepoBuilder::new()
             .branch(&branch)
-            .fetch_options({
-                let mut options = FetchOptions::new();
-                options.remote_callbacks(remote_callbacks());
-                options
-            })
+            .fetch_options(clone_fetch_opts)
             .clone(&config.remote_url, target_path)
-            .map_err(|e| format!("克隆仓库失败: {e}"))?;
+            .map_err(|e| normalize_git_operation_error("克隆仓库失败", Some(&config.remote_url), e))?;
 
+        if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
         if let Some(content) = &web_config_backup {
             fs::write(&web_config_path, content).ok();
             window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
         }
 
-        emit_progress(&window, cache, "done", 100, "克隆完成")?;
+        emit_progress(&window, cache.map(|c| c.as_ref()), "done", 100, "克隆完成")?;
         return Ok(build_pull_result(
             true,
             false,
@@ -1316,17 +1594,21 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
         ));
     }
 
-    emit_progress(&window, cache, "checking", 10, "检查远端版本")?;
+    if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+    emit_progress(&window, cache.map(|c| c.as_ref()), "checking", 10, "检查远端版本")?;
 
     let repo = open_repo(&config.local_path)?;
-    fetch_branch(&repo, &config.branch)?;
+    let pull_fetch_opts = create_progress_fetch_options(&window, cache, cancel_flag, "pulling", (25, 60));
+    fetch_branch_with_opts(&repo, &config.branch, Some(pull_fetch_opts))?;
 
-    emit_progress(&window, cache, "reading_remote_version", 25, "读取远端版本")?;
+    if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+
+    emit_progress(&window, cache.map(|c| c.as_ref()), "reading_remote_version", 65, "读取远端版本")?;
     let remote_version_content =
         read_remote_file(&repo, &config.branch, &config.version_file_path)?;
     let remote_version = extract_version(&remote_version_content)?;
 
-    emit_progress(&window, cache, "reading_remote_changelog", 40, "读取远端更新日志")?;
+    emit_progress(&window, cache.map(|c| c.as_ref()), "reading_remote_changelog", 75, "读取远端更新日志")?;
     let remote_changelog_content =
         read_remote_file(&repo, &config.branch, &config.changelog_file_path)?;
     let remote_section = find_changelog_section(&remote_changelog_content, &remote_version).ok();
@@ -1345,7 +1627,7 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
     );
 
     if !versions_differ(&local_version, &remote_version) {
-        emit_progress(&window, cache, "done", 100, "当前已是最新版本")?;
+        emit_progress(&window, cache.map(|c| c.as_ref()), "done", 100, "当前已是最新版本")?;
         let local_changelog_content =
             read_worktree_file(&config.local_path, &config.changelog_file_path)?;
         let local_section = find_changelog_section(&local_changelog_content, &local_version).ok();
@@ -1368,11 +1650,14 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
     }
 
     if config.backup_before_pull {
-        emit_progress(&window, cache, "backup", 55, "正在备份本地仓库")?;
+        if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+        emit_progress(&window, cache.map(|c| c.as_ref()), "backup", 80, "正在备份本地仓库")?;
         backup_repo_dir(&config.local_path)?;
     }
 
-    emit_progress(&window, cache, "pulling", 75, "正在更新本地仓库")?;
+    if cancel_flag.load(Ordering::SeqCst) { return Err("操作已取消".to_string()); }
+
+    emit_progress(&window, cache.map(|c| c.as_ref()), "pulling", 85, "正在更新本地仓库")?;
     fast_forward(&repo, &config.branch, config.force_push)?;
 
     if let Some(content) = &web_config_backup {
@@ -1380,7 +1665,7 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
         window.emit("service-log", "[SYSTEM] 已恢复 web.config 文件").ok();
     }
 
-    emit_progress(&window, cache, "refreshing_local", 90, "刷新本地版本信息")?;
+    emit_progress(&window, cache.map(|c| c.as_ref()), "refreshing_local", 95, "刷新本地版本信息")?;
     let local_version_content = read_worktree_file(&config.local_path, &config.version_file_path)?;
     let updated_local_version = extract_version(&local_version_content)?;
     let local_changelog_content =
@@ -1396,7 +1681,7 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Mutex<FetchProgress>>, c
         "local",
     );
 
-    emit_progress(&window, cache, "done", 100, "抓取完成")?;
+    emit_progress(&window, cache.map(|c| c.as_ref()), "done", 100, "抓取完成")?;
     Ok(build_pull_result(
         true,
         false,
@@ -1697,6 +1982,7 @@ pub fn run() {
                 total_objects: None,
                 received_objects: None,
             })),
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1708,6 +1994,7 @@ pub fn run() {
             git_backup,
             get_dashboard_data,
             run_smart_pull,
+            cancel_sync,
             get_sync_progress,
             get_system_info,
             get_web_service_info,
