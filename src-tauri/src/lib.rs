@@ -736,6 +736,30 @@ fn backup_repo_dir(source_path: &str) -> Result<String, String> {
     Ok(backup_path)
 }
 
+#[cfg(target_os = "windows")]
+fn refresh_windows_path() {
+    use std::process::Command;
+    let node_paths = vec![
+        r"C:\Program Files\nodejs",
+        r"C:\Program Files (x86)\nodejs",
+    ];
+    for path in &node_paths {
+        if std::path::Path::new(path).exists() {
+            let output = Command::new("powershell")
+                .args([
+                    "-Command",
+                    &format!(
+                        "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'Process')"
+                    ),
+                ])
+                .output();
+            if output.is_ok() {
+                break;
+            }
+        }
+    }
+}
+
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
     fs::create_dir_all(target)
         .map_err(|e| format!("创建备份目录失败 {}: {e}", target.display()))?;
@@ -1417,6 +1441,9 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                         .map_err(|e| format!("MSI 安装失败: {}", e))?;
                     let _ = std::fs::remove_file(msi_path);
                     if output.status.success() {
+                        if is_win {
+                            refresh_windows_path();
+                        }
                         window.emit("env-install-progress", "Node.js 安装完成").ok();
                         return Ok("Node.js 安装成功（内置版本）".to_string());
                     } else {
@@ -1494,6 +1521,10 @@ async fn install_node_env(window: Window) -> Result<String, String> {
             .output()
             .map_err(|e| format!("解压失败: {}", e))?;
         let _ = std::fs::remove_file(download_path);
+    }
+
+    if is_win {
+        refresh_windows_path();
     }
 
     window.emit("env-install-progress", "Node.js 安装完成").ok();
