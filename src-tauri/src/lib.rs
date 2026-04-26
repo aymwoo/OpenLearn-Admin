@@ -1375,31 +1375,33 @@ async fn install_node_env(window: Window) -> Result<String, String> {
     }
 
     let node_url = if is_win {
-        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-win-x64.zip"
+        "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-x64.msi"
     } else {
         "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-linux-x64.tar.xz"
     };
 
     window.emit("env-install-progress", "正在下载 Node.js...").ok();
 
-    let filename = if is_win { "node.zip" } else { "node.tar.xz" };
+    let filename = if is_win { "node.msi" } else { "node.tar.xz" };
     let download_path = tools_dir.join(filename);
 
     let response = reqwest::get(node_url).await.map_err(|e| format!("下载失败: {}", e))?;
     let content = response.bytes().await.map_err(|e| format!("读取内容失败: {}", e))?;
     std::fs::write(&download_path, &content).map_err(|e| format!("写入文件失败: {}", e))?;
 
-    window.emit("env-install-progress", "正在解压 Node.js...").ok();
-
     if is_win {
-        std::process::Command::new("powershell")
-            .args([
-                "-Command",
-                &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", download_path.display(), tools_dir.display())
-            ])
+        window.emit("env-install-progress", "正在安装 Node.js...").ok();
+        let output = std::process::Command::new("msiexec")
+            .args(["/i", &download_path.to_string_lossy(), "/quiet", "/norestart"])
             .output()
-            .map_err(|e| format!("解压失败: {}", e))?;
+            .map_err(|e| format!("MSI 安装失败: {}", e))?;
+        let _ = std::fs::remove_file(download_path);
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Node.js 安装失败: {}", stderr));
+        }
     } else {
+        window.emit("env-install-progress", "正在解压 Node.js...").ok();
         std::process::Command::new("tar")
             .args([
                 "-xJf",
@@ -1409,9 +1411,9 @@ async fn install_node_env(window: Window) -> Result<String, String> {
             ])
             .output()
             .map_err(|e| format!("解压失败: {}", e))?;
+        let _ = std::fs::remove_file(download_path);
     }
 
-    let _ = std::fs::remove_file(download_path);
     window.emit("env-install-progress", "Node.js 安装完成").ok();
     Ok("Node.js 安装成功".to_string())
 }
