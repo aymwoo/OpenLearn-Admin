@@ -1008,6 +1008,14 @@ fn discover_windows_bundled_node_msi(resource_dir: &Path) -> Result<BundledNodeM
     })
 }
 
+fn missing_windows_bundled_node_msi_error(discovery: &BundledNodeMsiDiscovery) -> String {
+    format!(
+        "Windows full 包内缺少 Node.js MSI；请确认 GitHub Actions 构建阶段已将 src-tauri/assets-windows/*.msi 复制到 src-tauri/resources/{}；{}",
+        WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR,
+        describe_windows_bundled_node_msi_scan(discovery)
+    )
+}
+
 fn format_command_output_text(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes).trim().to_string();
     if text.is_empty() {
@@ -1714,7 +1722,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                 ));
             }
 
-            bundled_windows_scan_note = Some(discovery_summary);
+            bundled_windows_scan_note = Some(missing_windows_bundled_node_msi_error(&discovery));
         }
     }
 
@@ -2172,10 +2180,22 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Arc<Mutex<FetchProgress>
 #[cfg(test)]
 mod tests {
     use super::{
-        build_pull_result, build_repo_status, default_branch, extract_version,
-        find_changelog_section, https_auth_guidance, is_ssh_remote, normalize_git_operation_error,
-        versions_differ, VersionDetails,
+        build_pull_result, build_repo_status, build_windows_node_command_paths, default_branch,
+        discover_windows_bundled_node_msi, extract_version, find_changelog_section,
+        https_auth_guidance, is_ssh_remote, missing_windows_bundled_node_msi_error,
+        normalize_git_operation_error, windows_bundled_node_msi_scan_dirs,
+        windows_node_command_path_labels, versions_differ, VersionDetails,
+        WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR,
     };
+    use std::{fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
+
+    fn unique_test_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("openlearn-admin-{name}-{nanos}"))
+    }
 
     #[test]
     fn default_branch_returns_main_for_empty_string() {
@@ -2300,6 +2320,63 @@ mod tests {
     fn ssh_remote_detection_keeps_ssh_path_available() {
         assert!(is_ssh_remote("git@gitee.com:nylon26/openlearnsite.git"));
         assert!(is_ssh_remote("ssh://git@gitee.com/nylon26/openlearnsite.git"));
+    }
+
+    #[test]
+    fn windows_bundled_scan_dirs_include_resources_contract() {
+        let resource_dir = PathBuf::from(r"C:\\OpenLearn\\resources");
+        let scan_dirs = windows_bundled_node_msi_scan_dirs(&resource_dir);
+
+        assert_eq!(
+            scan_dirs,
+            vec![
+                resource_dir.join(WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR),
+                resource_dir.join("resources").join(WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR),
+            ]
+        );
+    }
+
+    #[test]
+    fn discover_windows_bundled_node_msi_selects_sorted_first_match() {
+        let resource_dir = unique_test_dir("bundled-msi-discovery");
+        let scan_dir = resource_dir.join(WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR);
+        fs::create_dir_all(&scan_dir).unwrap();
+        fs::write(scan_dir.join("node-v24.15.0-x64.msi"), b"a").unwrap();
+        fs::write(scan_dir.join("node-v20.12.2-x64.msi"), b"b").unwrap();
+        fs::write(scan_dir.join("README.txt"), b"ignore").unwrap();
+
+        let discovery = discover_windows_bundled_node_msi(&resource_dir).unwrap();
+        let selected = discovery.selected_msi.unwrap();
+        assert_eq!(selected.file_name().unwrap().to_string_lossy(), "node-v20.12.2-x64.msi");
+
+        let _ = fs::remove_dir_all(resource_dir);
+    }
+
+    #[test]
+    fn windows_command_paths_keep_node_npm_pnpm_in_same_directory() {
+        let base_dir = PathBuf::from(r"C:\\Program Files\\nodejs");
+        let paths = build_windows_node_command_paths(base_dir.clone());
+
+        assert_eq!(paths.node_dir, base_dir);
+        assert_eq!(paths.node_exe, paths.node_dir.join("node.exe"));
+        assert_eq!(paths.npm_cmd, paths.node_dir.join("npm.cmd"));
+        assert_eq!(paths.pnpm_cmd, paths.node_dir.join("pnpm.cmd"));
+
+        let labels = windows_node_command_path_labels(&paths);
+        assert!(labels.contains("node.exe"));
+        assert!(labels.contains("npm.cmd"));
+        assert!(labels.contains("pnpm.cmd"));
+    }
+
+    #[test]
+    fn missing_windows_bundled_msi_error_mentions_bundle_contract() {
+        let resource_dir = PathBuf::from(r"C:\\OpenLearn\\resources");
+        let discovery = discover_windows_bundled_node_msi(&resource_dir).unwrap();
+        let message = missing_windows_bundled_node_msi_error(&discovery);
+
+        assert!(message.contains("assets-windows"));
+        assert!(message.contains("resources/nodejs"));
+        assert!(message.contains("包内缺少 Node.js MSI"));
     }
 }
 
