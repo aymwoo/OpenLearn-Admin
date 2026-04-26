@@ -2,6 +2,12 @@
 
 所有对本项目的显著更改都将记录在此文件中。
 
+## [0.2.16] - 2026-04-27
+
+### 修复
+- **版本号同步**：修正 `tauri.conf.json`、`Cargo.toml`、`Cargo.lock` 版本号与发布 tag 不一致的问题。
+- **Release workflow 完善**：修复 Windows online 构建产物未上传、Linux 构建目标错误、job 重名等问题。
+
 ## [0.2.15] - 2026-04-27
 
 ### 修复
