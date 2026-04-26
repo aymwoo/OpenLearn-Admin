@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-27 - Completed quick task 260427-9na: 移除 assets-windows，Node.js MSI 直接存放于 resources/nodejs，发布 v0.2.13
+2026-04-27 - Completed quick task 260427-9sa: 清理 install_node_env 死代码，确保 full/online 两条安装链路分明
 
 ---
 
@@ -38,3 +38,4 @@
 | 260427-07s | 修复 Windows online/full Node.js MSI 安装链路，统一程序内 npm/pnpm 命中刚安装的 Windows Node 目录，并固化 assets-windows → resources/nodejs 的 full bundle 契约 | 2026-04-27 | 92bbf98 | [260427-07s-windows-online-full-node-js-online-msi-p](./quick/260427-07s-windows-online-full-node-js-online-msi-p/) |
 | 260427-8mm | 梳理并固化 Windows online/full Node.js MSI 安装链路，统一安装后 npm readiness 收尾、补足 bundled MSI 回归测试，并明确 assets-windows 到 resources/nodejs 的 full bundle 契约提示 | 2026-04-26 | 9f78612 | [260427-8mm-windows-full-msi-path-npm-full-assets-wi](./quick/260427-8mm-windows-full-msi-path-npm-full-assets-wi/) |
 | 260427-9na | 移除 assets-windows，Node.js MSI 直接存放于 resources/nodejs，发布 v0.2.13 | 2026-04-27 | 6bba50f | [260427-9na-assets-windows-resources-nodejs-msi-0-2-](./quick/260427-9na-assets-windows-resources-nodejs-msi-0-2-/) |
+| 260427-9sa | 清理 install_node_env 死代码，确保 full/online 两条安装链路分明，发布 v0.2.14 | 2026-04-27 | 7f924ad | [260427-9sa-full-msi-full-msi-npm](./quick/260427-9sa-full-msi-full-msi-npm/) |
