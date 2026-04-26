@@ -134,20 +134,6 @@ struct DbConnectionStatus {
     error: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WebServiceInfo {
-    student_count: i32,
-    lesson_count: i32,
-    work_count: i32,
-    system_uptime: String,
-    process_start_time: String,
-    asp_net_memory: String,
-    asp_net_thread_count: i32,
-    courses: Option<i32>,
-    db_size: Option<String>,
-}
-
 struct ProcessManager {
     processes: Mutex<HashMap<String, std::process::Child>>,
 }
@@ -1526,57 +1512,76 @@ mod tests {
 
 
 #[command]
-async fn get_web_service_info(url: String) -> Option<WebServiceInfo> {
+async fn get_web_service_info(url: String) -> bool {
     let client = reqwest::Client::new();
-    let target_url = format!("{}/api/SiteStats.ashx", url.trim_end_matches('/'));
-    
-    let res = match client.get(target_url)
+    let target_url = url.trim_end_matches('/').to_string();
+
+    match client.get(&target_url)
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
     {
-        Ok(r) => r,
-        Err(_) => return None,
-    };
-        
-    if !res.status().is_success() {
-        return None;
+        Ok(r) => r.status().is_success(),
+        Err(_) => false,
     }
-    
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct SiteStatsRaw {
-        courses: Option<i32>,
-        students: Option<i32>,
-        works: Option<i32>,
-        uptime: Option<String>,
-        #[serde(rename = "startTime")]
-        start_time: Option<String>,
-        #[serde(rename = "memoryMB")]
-        memory_mb: Option<String>,
-        #[serde(rename = "dbSize")]
-        db_size: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WebServiceInfo {
+    student_count: Option<u32>,
+    lesson_count: Option<u32>,
+    work_count: Option<u32>,
+    system_uptime: Option<String>,
+    asp_net_memory: Option<f64>,
+    asp_net_thread_count: Option<u32>,
+    db_size: Option<String>,
+}
+
+#[command]
+async fn fetch_web_service_business_info(url: String) -> Result<Option<WebServiceInfo>, String> {
+    let client = reqwest::Client::new();
+    let target_url = url.trim_end_matches('/').to_string();
+
+    // 先检查 web 服务是否可达
+    match client.get(&target_url)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(r) => {
+            if !r.status().is_success() {
+                return Ok(None);
+            }
+        }
+        Err(_) => return Ok(None),
     }
-    
-    let raw: SiteStatsRaw = match res.json().await {
-        Ok(r) => r,
-        Err(_) => return None,
-    };
-    
-    let uptime_str = raw.uptime.unwrap_or_default();
-    let start_time_str = raw.start_time.unwrap_or_default();
-    
-    Some(WebServiceInfo {
-        student_count: raw.students.unwrap_or(0),
-        lesson_count: raw.courses.unwrap_or(0),
-        work_count: raw.works.unwrap_or(0),
-        system_uptime: format!("{} ({})", uptime_str, start_time_str),
-        process_start_time: start_time_str,
-        asp_net_memory: raw.memory_mb.unwrap_or_default(),
-        asp_net_thread_count: raw.works.unwrap_or(0),
-        courses: raw.courses,
-        db_size: raw.db_size,
-    })
+
+    // 尝试从 API 端点获取业务数据
+    let api_url = format!("{}/api/status", target_url);
+    match client.get(&api_url)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<WebServiceInfo>().await {
+                    Ok(info) => Ok(Some(info)),
+                    Err(e) => {
+                        log::warn!("解析业务信息失败: {}", e);
+                        Ok(None)
+                    }
+                }
+            } else {
+                Ok(None)
+            }
+        }
+        Err(e) => {
+            log::warn!("获取业务信息失败: {}", e);
+            Ok(None)
+        }
+    }
 }
 
 #[command]
@@ -1706,6 +1711,7 @@ pub fn run() {
             get_sync_progress,
             get_system_info,
             get_web_service_info,
+            fetch_web_service_business_info,
             get_database_connection_status,
             is_windows,
             check_local_repo,

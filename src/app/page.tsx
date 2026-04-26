@@ -11,14 +11,15 @@ import {
   type GitConfig,
   type RepoSyncStatus,
   type VersionDetails,
+  type WebServiceInfo,
   getDashboardData,
   getRemoteStatus,
   getWebServiceInfo,
+  fetchWebServiceBusinessInfo,
   getSyncProgress,
   listenPullProgress,
   loadConfig,
   runSmartPull,
-  type WebServiceInfo,
   isWindowsHost,
   runProjectTask,
   stopProjectTask,
@@ -50,15 +51,16 @@ export default function Dashboard() {
     lastCommitTime: string;
   } | null>(null);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
-  const [webServiceInfo, setWebServiceInfo] = useState<WebServiceInfo | null>(
-    null
-  );
+  const [isWebServiceAccessible, setIsWebServiceAccessible] = useState(false);
   const [wsConnectionError, setWsConnectionError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<DbConnectionStatus | null>(null);
+  const [webServiceInfo, setWebServiceInfo] = useState<WebServiceInfo | null>(null);
   const [isWindows, setIsWindows] = useState(false);
   const [runningTask, setRunningTask] = useState<string | null>(null);
   const [isDevActive, setIsDevActive] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [terminalCollapsed, setTerminalCollapsed] = useState(false);
+  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const configRef = useRef<GitConfig | null>(null);
 
@@ -99,34 +101,39 @@ const applyDashboardData = (data: DashboardData) => {
 
       setConfig(cfg);
 
-      getDashboardData(cfg)
-        .then((data) => {
-          if (!mounted) return;
-          applyDashboardData(data);
-          getRemoteStatus(cfg.localPath, cfg.branch)
-            .then((rs) => { if (mounted) setRemoteStatus(rs); })
-            .catch(() => {});
-        })
-        .catch((error) => {
-          if (!mounted) return;
-          const errMsg = error instanceof Error ? error.message : String(error);
-          setStatus({
-            currentBranch: cfg.branch,
-            hasUpdates: false,
-            localVersion: undefined,
-            remoteVersion: undefined,
+      if (typeof window !== 'undefined' && sessionStorage.getItem('settings_updated') === 'true') {
+        sessionStorage.removeItem('settings_updated');
+        setShowUpdatePrompt(true);
+      } else {
+        getDashboardData(cfg)
+          .then((data) => {
+            if (!mounted) return;
+            applyDashboardData(data);
+            getRemoteStatus(cfg.localPath, cfg.branch)
+              .then((rs) => { if (mounted) setRemoteStatus(rs); })
+              .catch(() => {});
+          })
+          .catch((error) => {
+            if (!mounted) return;
+            const errMsg = error instanceof Error ? error.message : String(error);
+            setStatus({
+              currentBranch: cfg.branch,
+              hasUpdates: false,
+              localVersion: undefined,
+              remoteVersion: undefined,
+            });
+            if (
+              errMsg.includes("空文件夹") ||
+              errMsg.includes("请先克隆") ||
+              errMsg.includes("不是有效的 Git") ||
+              errMsg.includes("路径不存在")
+            ) {
+              setMessage('本地仓库未初始化，请前往设置页面重新配置并同步');
+            } else {
+              setMessage(errMsg);
+            }
           });
-          if (
-            errMsg.includes("空文件夹") ||
-            errMsg.includes("请先克隆") ||
-            errMsg.includes("不是有效的 Git") ||
-            errMsg.includes("路径不存在")
-          ) {
-            setMessage('本地仓库未初始化，请前往设置页面重新配置并同步');
-          } else {
-            setMessage(errMsg);
-          }
-        });
+      }
       getSyncProgress().then(p => {
         if (mounted && p.stage !== 'idle' && p.stage !== 'done' && p.stage !== 'error') {
           setProgress(p);
@@ -205,13 +212,17 @@ const applyDashboardData = (data: DashboardData) => {
 
     const fetchWSInfo = async () => {
       if (!configRef.current?.webServiceUrl) return;
-      const info = await getWebServiceInfo(configRef.current.webServiceUrl);
+      const accessible = await getWebServiceInfo(configRef.current.webServiceUrl);
       if (mounted) {
-        if (info) {
-          setWebServiceInfo(info);
-          setWsConnectionError(null);
-        } else {
+        setIsWebServiceAccessible(accessible);
+        if (!accessible) {
           setWsConnectionError('服务暂时不可用，请检查服务是否启动');
+          setWebServiceInfo(null);
+        } else {
+          setWsConnectionError(null);
+          fetchWebServiceBusinessInfo(configRef.current.webServiceUrl).then(info => {
+            if (mounted) setWebServiceInfo(info);
+          });
         }
       }
     };
@@ -238,14 +249,7 @@ const applyDashboardData = (data: DashboardData) => {
     };
   };
 
-  const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / (3600 * 24));
-    if (days > 0) return { value: days, unit: "天" };
-    const hours = Math.floor((seconds % (3600 * 24)) / 3600);
-    if (hours > 0) return { value: hours, unit: "小时" };
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return { value: minutes, unit: "分钟" };
-  };
+
 
   const handlePull = async () => {
     if (!config) {
@@ -361,8 +365,6 @@ const applyDashboardData = (data: DashboardData) => {
     : status?.hasUpdates === false && !!status?.localVersion;
   const isAhead = remoteStatus ? remoteStatus.ahead > 0 : false;
   const isUninitialized = message.includes("未初始化") || message.includes("请先克隆");
-  const uptime = sysInfo ? formatUptime(sysInfo.uptime) : null;
-
   return (
     <div className="flex h-screen overflow-hidden text-on-surface">
       <nav className="h-screen w-64 fixed left-0 top-0 bg-[#f7f9fb] dark:bg-slate-950 flex flex-col p-4 space-y-6 border-r-0 z-20">
@@ -477,6 +479,39 @@ const applyDashboardData = (data: DashboardData) => {
           </div>
         </header>
 
+        {showUpdatePrompt && (
+          <div className="mx-8 mt-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-amber-600 text-2xl">warning</span>
+              <div>
+                <p className="text-sm font-bold text-amber-800">设置已发生改变</p>
+                <p className="text-xs text-amber-600 mt-0.5">是否需要立即从远端拉取最新更新？</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => { setShowUpdatePrompt(false); handlePull(); }}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-bold hover:bg-amber-700 transition-colors"
+              >
+                立即更新
+              </button>
+              <button
+                onClick={() => { setShowUpdatePrompt(false); refreshData(); }}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                稍后再说
+              </button>
+              <button
+                onClick={() => { setShowUpdatePrompt(false); refreshData(); }}
+                className="p-2 hover:bg-amber-100 rounded-lg transition-colors text-amber-500"
+                title="关闭"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-8">
           <div className="flex flex-col space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -524,8 +559,8 @@ const applyDashboardData = (data: DashboardData) => {
                             className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_8px_rgba(255,255,255,0.5)]"
                             style={{ width: `${progress.percent}%` }}
                           />
-                        </div>
-                      </div>
+              </div>
+              </div>
                     )}
                   </div>
 
@@ -680,7 +715,6 @@ const applyDashboardData = (data: DashboardData) => {
             </div>
 
             {/* Row 1.2: Project Lifecycle Management */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <div className="bg-surface-container-lowest rounded-xl p-8 shadow-sm outline outline-1 outline-outline-variant/15 flex flex-col space-y-6">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center space-x-3">
@@ -694,16 +728,49 @@ const applyDashboardData = (data: DashboardData) => {
                         <p className="text-sm text-on-surface-variant font-medium">
                           {isDevActive ? '开发服务运行中' : '服务未启动'}
                         </p>
+                        {wsConnectionError && (
+                          <button
+                            onClick={() => {
+                              setWsConnectionError(null);
+                              const url = configRef.current?.webServiceUrl || '';
+                              getWebServiceInfo(url).then(accessible => {
+                                setIsWebServiceAccessible(accessible);
+                                if (!accessible) {
+                                  setWsConnectionError('服务暂时不可用');
+                                  setWebServiceInfo(null);
+                                } else {
+                                  fetchWebServiceBusinessInfo(url).then(info => {
+                                    setWebServiceInfo(info);
+                                  });
+                                }
+                              });
+                            }}
+                            className="hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors text-amber-600 dark:text-amber-400 shrink-0 leading-none p-1"
+                            title="重试"
+                          >
+                            <span className="material-symbols-outlined inline-flex items-center" style={{ fontSize: '18px' }}>refresh</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setTerminalLogs([])}
-                    className="p-2 hover:bg-surface-container-low rounded-xl transition-colors text-on-surface-variant"
-                    title="清空日志"
-                  >
-                    <span className="material-symbols-outlined">delete_sweep</span>
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button 
+                      onClick={handleOpenBrowser}
+                      disabled={!config?.webServiceUrl}
+                      className="p-2 hover:bg-surface-container-low rounded-xl transition-colors text-on-surface-variant disabled:opacity-50"
+                      title="访问服务"
+                    >
+                      <span className="material-symbols-outlined">open_in_new</span>
+                    </button>
+                    <button 
+                      onClick={() => setTerminalLogs([])}
+                      className="p-2 hover:bg-surface-container-low rounded-xl transition-colors text-on-surface-variant"
+                      title="清空日志"
+                    >
+                      <span className="material-symbols-outlined">delete_sweep</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -754,20 +821,14 @@ const applyDashboardData = (data: DashboardData) => {
                     <span className="text-xs font-bold text-on-surface">重启服务</span>
                   </button>
 
-                  <button 
-                    onClick={handleOpenBrowser}
-                    disabled={!config?.webServiceUrl}
-                    className="flex flex-col items-center justify-center p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10 hover:bg-blue-500/10 transition-all group disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-blue-600 mb-2">open_in_new</span>
-                    <span className="text-xs font-bold text-blue-600">访问服务</span>
-                  </button>
                 </div>
-              </div>
 
               {/* Console Output */}
-              <div className="bg-[#0f172a] rounded-xl p-5 font-mono text-sm shadow-inner flex flex-col h-[300px] border border-slate-800">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+              <div className="bg-[#0f172a] rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setTerminalCollapsed(!terminalCollapsed)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 rounded-t-xl transition-colors"
+                >
                   <div className="flex items-center space-x-2">
                     <div className="flex space-x-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
@@ -775,133 +836,42 @@ const applyDashboardData = (data: DashboardData) => {
                       <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
                     </div>
                     <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase ml-2">Terminal Output</span>
+                    <span className="text-slate-600 text-[10px] ml-1">({terminalLogs.length})</span>
                   </div>
-                  {runningTask && (
-                    <span className="text-[10px] text-primary animate-pulse font-bold uppercase">Executing {runningTask}...</span>
-                  )}
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar scroll-smooth">
-                  {terminalLogs.length === 0 ? (
-                    <p className="text-slate-600 italic text-xs">Waiting for task signals...</p>
-                  ) : (
-                    terminalLogs.map((log, i) => (
-                      <p key={i} className={`break-all leading-relaxed text-[13px] ${
-                        log.startsWith('>>>') ? 'text-blue-400 font-bold' : 
-                        log.startsWith('[ERROR]') || log.startsWith('[ERR]') ? 'text-rose-400' : 
-                        'text-slate-300'
-                      }`}>
-                        <span className="opacity-20 mr-2 select-none">{i + 1}</span>
-                        {log}
-                      </p>
-                    ))
-                  )}
-                  <div ref={terminalEndRef} />
-                </div>
-              </div>
-            </div>
-
-            {/* Row 1.5: Web Service Business Info */}
-            {wsConnectionError ? (
-              <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-amber-500">warning</span>
-                    <div>
-                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">无法连接到 Web 服务</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        服务地址: {config?.webServiceUrl || '未配置'} | 请检查服务是否启动，3秒后自动重试...
-                      </p>
+                  <div className="flex items-center gap-2">
+                    {runningTask && (
+                      <span className="text-[10px] text-primary animate-pulse font-bold uppercase">Executing {runningTask}...</span>
+                    )}
+                    <span className={`material-symbols-outlined text-slate-500 text-sm transition-transform ${terminalCollapsed ? 'rotate-180' : ''}`}>
+                      expand_less
+                    </span>
+                  </div>
+                </button>
+                {!terminalCollapsed && (
+                  <div className="px-5 pb-5 pt-0 font-mono text-sm flex flex-col h-[300px]">
+                    <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar scroll-smooth">
+                      {terminalLogs.length === 0 ? (
+                        <p className="text-slate-600 italic text-xs">Waiting for task signals...</p>
+                      ) : (
+                        terminalLogs.map((log, i) => (
+                          <p key={i} className={`break-all leading-relaxed text-[13px] ${
+                            log.startsWith('>>>') ? 'text-blue-400 font-bold' : 
+                            log.startsWith('[ERROR]') || log.startsWith('[ERR]') ? 'text-rose-400' : 
+                            'text-slate-300'
+                          }`}>
+                            <span className="opacity-20 mr-2 select-none">{i + 1}</span>
+                            {log}
+                          </p>
+                        ))
+                      )}
+                      <div ref={terminalEndRef} />
                     </div>
                   </div>
-                  <button
-                    onClick={() => { 
-                      setWsConnectionError(null); 
-                      getWebServiceInfo(configRef.current?.webServiceUrl || '').then(info => {
-                        if (info) setWebServiceInfo(info);
-                        else setWsConnectionError('服务暂时不可用');
-                      });
-                    }}
-                    className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
-                  >
-                    重试
-                  </button>
-                </div>
+                )}
               </div>
-            ) : (
-            <>
-            <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
-              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-3 gap-4">
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-blue-500">group</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">学生总数</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.studentCount ?? "-"}</h4>
-                </div>
-                
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-indigo-500">menu_book</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">学案总数</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.lessonCount ?? "-"}</h4>
-                </div>
 
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm text-violet-500">art_track</span>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">作品数量</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold text-on-surface">{webServiceInfo?.workCount ?? "-"}</h4>
-                </div>
-              </div>
+            
             </div>
-
-            <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline outline-1 outline-outline-variant/10">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-emerald-600">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm">timer</span>
-                    <p className="text-[11px] font-bold opacity-70 tracking-wider">运行时间</p>
-                  </div>
-                  <h4 className="text-lg font-bold truncate" title={webServiceInfo?.systemUptime}>{webServiceInfo?.systemUptime ?? "-"}</h4>
-                </div>
-
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-rose-500">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm">monitoring</span>
-                    <p className="text-[11px] font-bold opacity-70 tracking-wider">CPU使用率</p>
-                  </div>
-                  <h4 className="text-xl font-bold truncate">{sysInfo?.cpuUsage ?? "--"}%</h4>
-                </div>
-                
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-indigo-500">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm">memory</span>
-                    <p className="text-[11px] font-bold opacity-70 tracking-wider">内存</p>
-                  </div>
-                  <h4 className="text-xl font-bold truncate">{webServiceInfo?.aspNetMemory ? `${webServiceInfo.aspNetMemory} MB` : "-"}</h4>
-                </div>
-
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-cyan-500">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm">reorder</span>
-                    <p className="text-[11px] font-bold opacity-70 tracking-wider">线程数</p>
-                  </div>
-                  <h4 className="text-2xl font-headline font-bold">{webServiceInfo?.aspNetThreadCount ?? "-"}</h4>
-                </div>
-
-                <div className="flex flex-col p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-violet-500">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <span className="material-symbols-outlined text-sm">storage</span>
-                    <p className="text-[11px] font-bold opacity-70 tracking-wider">数据库</p>
-                  </div>
-                  <h4 className="text-xl font-bold truncate">{webServiceInfo?.dbSize ?? "-"}</h4>
-                </div>
-              </div>
-            </div>
-            </>
-            )}
 
             {/* Row 2: Resource Metrics */}
             <div>

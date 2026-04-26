@@ -142,6 +142,7 @@ export default function Settings() {
     try {
       const result = await checkAndSave();
       if (result === 'saved') {
+        sessionStorage.setItem('settings_updated', 'true');
         setMessage('配置已保存');
       } else if (result === 'needs-clone') {
         setShowCloneConfirm(true);

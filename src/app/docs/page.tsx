@@ -189,7 +189,7 @@ export default function DocsPage() {
                 OpenLearn Manager
               </h1>
               <p className="text-xl text-on-surface-variant max-w-2xl mx-auto">
-                现代化的一站式管理系统，简化 OpenLearn Manager 平台的运维工作
+                面向 OpenLearn 教育平台的一站式运维管理工具
               </p>
             </div>
 
@@ -201,7 +201,7 @@ export default function DocsPage() {
                 <div>
                   <h2 className="font-headline font-bold text-on-surface text-lg mb-2">系统概述</h2>
                   <p className="text-on-surface-variant leading-relaxed">
-                    OpenLearn Manager 是一款专为教育平台设计的桌面管理工具，帮助管理员轻松完成版本更新监控、数据库连接管理、Web 服务状态跟踪以及系统配置管理等核心运维任务。通过直观的可视化界面，即使是非技术背景的管理员也能快速上手，实现对 OpenLearn Manager 系统的全面掌控。
+                    OpenLearn Manager 是一款专为 OpenLearn 开源学习平台设计的桌面管理工具，基于 Tauri 2 + Next.js 构建，为管理员提供版本同步、服务运维、资源监控、环境管理等一站式管理能力。通过直观的可视化界面和实时数据面板，帮助管理员高效掌握系统运行状态，简化日常运维工作。
                   </p>
                 </div>
               </div>
@@ -214,73 +214,73 @@ export default function DocsPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FeatureCard icon="sync" title="智能版本同步">
-                  <p className="mb-3">自动检测本地与远程仓库的版本差异，支持一键拉取最新代码。系统会显示 ahead/behind 状态，直观呈现本地与远程的提交差异。</p>
+                  <p className="mb-3">自动检测本地与远程仓库的版本差异，支持一键拉取最新代码。展示本地与远程的版本号、ahead/behind 提交数以及对应用户头像。</p>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>自动对比本地与远程版本号</span>
+                      <span>自动对比本地与远程版本号（含稳定版/测试版标签）</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>智能增量更新，减少网络传输</span>
+                      <span>一键 Smart Pull 增量同步，圆形进度环实时显示</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>实时显示更新进度</span>
+                      <span>CHANGELOG 弹窗查看版本变更记录</span>
                     </li>
                   </ul>
                 </FeatureCard>
 
-                <FeatureCard icon="monitoring" title="实时状态监控">
-                  <p className="mb-3">24/7 全天候监控系统运行状态，包括数据库连接、Web 服务健康度、资源使用情况等关键指标。</p>
+                <FeatureCard icon="terminal" title="项目运维管理">
+                  <p className="mb-3">在仪表盘上直接启动、停止和重启开发服务器，管理项目依赖和构建流程，所有操作日志实时输出到终端面板。</p>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>数据库连接状态实时监测</span>
+                      <span>启动 / 停止 / 重启开发服务（pnpm dev）</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>CPU、内存、磁盘使用率</span>
+                      <span>依赖安装（pnpm install）与生产构建（pnpm build）</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>自动告警通知</span>
+                      <span>端口占用检测与一键打开浏览器</span>
                     </li>
                   </ul>
                 </FeatureCard>
 
-                <FeatureCard icon="database" title="数���库管理">
-                  <p className="mb-3">便捷的数据库连接管理，支持 SQL Server 等主流数据库，提供连接状态查看和配置同步功能。</p>
+                <FeatureCard icon="monitoring" title="系统资源监控">
+                  <p className="mb-3">每 2 秒自动采集系统资源指标，通过进度条可视化呈现 CPU、内存和磁盘使用情况，支持系统运行时间显示。</p>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>一键同步数据库配置</span>
+                      <span>CPU 使用率实时采集与进度条展示</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>连接信息加密存储</span>
+                      <span>已用内存 / 总内存与磁盘可用空间监控</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>支持多种数据库类型</span>
+                      <span>系统运行时长、数据库连接状态实时检测</span>
                     </li>
                   </ul>
                 </FeatureCard>
 
-                <FeatureCard icon="tune" title="灵活配置管理">
-                  <p className="mb-3">可视化配置界面，支持修改 Git 仓库地址、本地路径、Web 服务地址等核心参数，无需手动编辑配置文件。</p>
+                <FeatureCard icon="dns" title="Web 服务业务监控">
+                  <p className="mb-3">每 5 秒轮询 Web 服务端点，获取业务数据并展示在仪表盘卡片中，帮助管理员掌握平台运营概况。</p>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>引导式配置向导</span>
+                      <span>学生总数、学案总数、作品数量统计</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>配置参数即时生效</span>
+                      <span>ASP.NET 服务运行时长、内存占用、线程数</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
-                      <span>配置备份与恢复</span>
+                      <span>SQL Server 数据库大小与连接状态</span>
                     </li>
                   </ul>
                 </FeatureCard>
@@ -297,7 +297,7 @@ export default function DocsPage() {
                   <StepItem 
                     number={1} 
                     title="首次启动" 
-                    description="启动应用程序后，如果未检测到配置文件，系统将自动跳转到配置向导页面。您也可以随时通过「系统设置」页面中的「重新运行配置向导」按钮手动唤起。"
+                    description="启动应用程序后，如果未检测到配置文件，系统将自动跳转到配置向导页面（/setup）。您也可以随时通过「系统设置」页面中的「重新运行配置向导」按钮手动唤起。"
                   />
                   <StepItem 
                     number={2} 
@@ -307,22 +307,22 @@ export default function DocsPage() {
                   <StepItem 
                     number={3} 
                     title="设置本地路径" 
-                    description="选择本地存储路径，用于存放从远程仓库克隆的代码。您可以使用文件选择器或手动输入路径。建议使用不含中文和空格的路径。"
+                    description="通过文件选择器或手动输入本地存储路径。首次使用且本地为空目录时，系统会自动克隆远程仓库。建议使用不含中文和空格的路径。"
                   />
                   <StepItem 
                     number={4} 
-                    title="配置版本信息" 
-                    description="设置版本文件和更新日志的路径，用于读取当前版本号和变更记录。默认使用 release.log 和 CHANGELOG.md。"
+                    title="配置版本文件" 
+                    description="设置版本文件和更新日志的相对路径，用于读取版本号（如 v2.0.1）和变更记录。默认使用 release.log 和 CHANGELOG.md。"
                   />
                   <StepItem 
                     number={5} 
                     title="配置 Web 服务（可选）" 
-                    description="如果您需要监控 Web 服务状态，请输入服务地址。系统会定期检测服务可用性并获取运行数据。"
+                    description="输入 ASP.NET Web 服务的访问地址（如 http://127.0.0.1:8000），系统将定期检测服务可用性并获取学生数、学案数等业务数据。"
                   />
                   <StepItem 
                     number={6} 
                     title="完成初始化" 
-                    description="确认配置信息后点击完成。系统将自动克隆仓库（如果是首次使用），并在仪表盘页面显示系统状态。"
+                    description="确认配置后点击保存。系统将自动克隆仓库（如果是首次使用），并跳转到仪表盘页面展示所有系统状态与数据。"
                   />
                 </div>
               </div>
@@ -336,32 +336,35 @@ export default function DocsPage() {
               
               <div className="space-y-6">
                 <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
-                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">状态指示器</h3>
+                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">系统版本状态</h3>
+                  <p className="text-on-surface-variant leading-relaxed mb-4">
+                    仪表盘顶部大卡片根据本地与远程的版本差异展示三种状态：
+                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <StatusIndicator color="green" label="系统正常" description="所有服务运行正常，版本已是最新" />
-                    <StatusIndicator color="amber" label="需要更新" description="检测到远程有新版本可用" />
-                    <StatusIndicator color="red" label="连接异常" description="数据库或服务连接失败" />
+                    <StatusIndicator color="green" label="系统已经是最新" description="本地版本与远程版本一致，无需更新" />
+                    <StatusIndicator color="amber" label="发现新版本" description="远程有新版本可用，建议点击同步" />
+                    <StatusIndicator color="red" label="连接异常" description="无法连接远程仓库或 Web 服务" />
                   </div>
                 </div>
 
                 <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
-                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">顶部状态栏图标</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">顶部状态栏</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
-                        <span className="material-symbols-outlined text-emerald-500">dns</span>
+                        <span className="material-symbols-outlined text-primary">dns</span>
                         <div>
                           <p className="font-headline font-semibold text-on-surface">数据库状态</p>
-                          <p className="text-sm text-on-surface-variant">绿色表示已连接，红色表示未连接。鼠标悬停可查看连接详情（服务器/数据库名）</p>
+                          <p className="text-sm text-on-surface-variant">绿色表示数据库已连接，红色表示未连接。悬停可查看服务器/数据库名称</p>
                         </div>
                       </div>
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
-                        <span className="material-symbols-outlined text-blue-500">cloud_done</span>
+                        <span className="material-symbols-outlined text-emerald-500">cloud_done</span>
                         <div>
                           <p className="font-headline font-semibold text-on-surface">Web 服务状态</p>
-                          <p className="text-sm text-on-surface-variant">绿色表示服务正常运行，可响应请求。系统每 5 秒自动检测一次</p>
+                          <p className="text-sm text-on-surface-variant">绿色表示服务正常运行，灰色表示未配置/未连接</p>
                         </div>
                       </div>
                     </div>
@@ -369,8 +372,8 @@ export default function DocsPage() {
                       <div className="flex items-center space-x-3">
                         <span className="material-symbols-outlined text-blue-500">refresh</span>
                         <div>
-                          <p className="font-headline font-semibold text-on-surface">手动同步按钮</p>
-                          <p className="text-sm text-on-surface-variant">点击立即从远程仓库拉取最新版本。该操作在后台线程运行，不影响界面响应</p>
+                          <p className="font-headline font-semibold text-on-surface">手动同步</p>
+                          <p className="text-sm text-on-surface-variant">点击立即从远程仓库拉取最新版本</p>
                         </div>
                       </div>
                     </div>
@@ -378,57 +381,26 @@ export default function DocsPage() {
                 </div>
 
                 <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
-                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">Web 服务信息卡片</h3>
+                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">Web 服务数据卡片</h3>
+                  <p className="text-on-surface-variant text-sm mb-4">Web 服务连接正常时，仪表盘底部会展示以下业务数据卡片：</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-blue-500 text-sm">group</span>
-                        <p className="text-xs font-semibold text-slate-500">学生总数</p>
+                    {[
+                      { icon: 'group', color: 'text-blue-500', label: '学生总数', desc: '系统中注册的学生用户数量' },
+                      { icon: 'menu_book', color: 'text-indigo-500', label: '学案总数', desc: '平台上创建的学案模板数量' },
+                      { icon: 'art_track', color: 'text-violet-500', label: '作品数量', desc: '学生提交的各类作品总数' },
+                      { icon: 'timer', color: 'text-emerald-500', label: '运行时间', desc: 'Web 服务自上次启动以来的运行时长' },
+                      { icon: 'memory', color: 'text-rose-500', label: 'ASP.NET 内存', desc: 'ASP.NET 运行时的内存占用（MB）' },
+                      { icon: 'reorder', color: 'text-cyan-500', label: '线程数', desc: '当前活跃的工作线程数量' },
+                      { icon: 'storage', color: 'text-violet-500', label: '数据库大小', desc: 'SQL Server 数据库文件大小' },
+                    ].map(item => (
+                      <div key={item.label} className="bg-surface-container-low rounded-xl p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className={`material-symbols-outlined ${item.color} text-sm`}>{item.icon}</span>
+                          <p className="text-xs font-semibold text-slate-500">{item.label}</p>
+                        </div>
+                        <p className="font-headline font-bold text-on-surface text-sm">{item.desc}</p>
                       </div>
-                      <p className="font-headline font-bold text-on-surface">系统中注册的学生用户数量</p>
-                    </div>
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-indigo-500 text-sm">menu_book</span>
-                        <p className="text-xs font-semibold text-slate-500">学案总数</p>
-                      </div>
-                      <p className="font-headline font-bold text-on-surface">平台上创建的学案模板数量</p>
-                    </div>
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-violet-500 text-sm">art_track</span>
-                        <p className="text-xs font-semibold text-slate-500">作品数量</p>
-                      </div>
-                      <p className="font-headline font-bold text-on-surface">学生提交的各类作品总数</p>
-                    </div>
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-emerald-500 text-sm">timer</span>
-                        <p className="text-xs font-semibold text-slate-500">运行时间</p>
-                      </div>
-                      <p className="font-headline font-bold text-on-surface">Web 服务自上次启动以来的运行时长</p>
-                    </div>
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-rose-500 text-sm">memory</span>
-                        <p className="text-xs font-semibold text-slate-500">内存使用</p>
-                      </div>
-                      <p className="font-headline font-bold text-on-surface">ASP.NET 运行时的内存占用（MB）</p>
-                    </div>
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-cyan-500 text-sm">reorder</span>
-                        <p className="text-xs font-semibold text-slate-500">线程数</p>
-                      </div>
-                      <p className="font-headline font-bold text-on-surface">当前活跃的工作线程数量</p>
-                    </div>
-                    <div className="bg-surface-container-low rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="material-symbols-outlined text-violet-500 text-sm">storage</span>
-                        <p className="text-xs font-semibold text-slate-500">数据库大小</p>
-                      </div>
-                      <p className="font-headline font-bold text-on-surface">SQL Server 数据库文件大小</p>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -437,22 +409,62 @@ export default function DocsPage() {
             <div>
               <h2 className="text-2xl font-headline font-bold text-on-surface mb-6 flex items-center">
                 <span className="material-symbols-outlined text-primary mr-3">terminal</span>
-                系统终端
+                项目运维管理
               </h2>
-              <div className="bg-[#2b2b2b] rounded-2xl p-6 border border-white/10">
-                <div className="flex items-center space-x-2 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
-                  <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
-                  <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
-                  <span className="text-white/50 text-sm ml-2">SYSTEM_TERMINAL</span>
+              
+              <div className="space-y-6">
+                <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
+                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">开发服务控制</h3>
+                  <p className="text-on-surface-variant leading-relaxed mb-4">
+                    仪表盘的「项目运维管理」区域提供了完整的开发服务生命周期控制：
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-emerald-500 text-sm">play_arrow</span>
+                        <p className="font-headline font-semibold text-on-surface">启动开发服务</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">执行 pnpm dev 启动 Next.js 开发服务器。启动前自动检测端口占用，如被占用将弹出确认对话框。</p>
+                    </div>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-rose-500 text-sm">stop</span>
+                        <p className="font-headline font-semibold text-on-surface">停止服务</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">安全终止正在运行的开发服务进程。</p>
+                    </div>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-amber-500 text-sm">restart_alt</span>
+                        <p className="font-headline font-semibold text-on-surface">安装依赖</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">执行 pnpm install 安装项目所需的 NPM 依赖包。</p>
+                    </div>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-blue-500 text-sm">build</span>
+                        <p className="font-headline font-semibold text-on-surface">执行构建</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">执行 pnpm build 进行生产环境构建。</p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-white/70 leading-relaxed mb-4">
-                  系统终端显示实时的操作日志和状态消息。日志会根据内容类型自动着色：
-                </p>
-                <div className="space-y-2 font-mono text-sm">
-                  <p><span className="text-emerald-400">绿色文字</span> <span className="text-white/70">- 成功操作或系统正常信息</span></p>
-                  <p><span className="text-amber-400">黄色文字</span> <span className="text-white/70">- 警告信息或需要注意的事项</span></p>
-                  <p><span className="text-rose-400">红色文字</span> <span className="text-white/70">- 错误信息或操作失败</span></p>
+
+                <div className="bg-[#2b2b2b] rounded-2xl p-6 border border-white/10">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
+                    <span className="text-white/50 text-sm ml-2">TERMINAL_OUTPUT</span>
+                  </div>
+                  <p className="text-white/70 leading-relaxed mb-4">
+                    所有项目操作的输出（启动、构建、同步等）会实时显示在可折叠的终端面板中，日志根据内容自动着色：
+                  </p>
+                  <div className="space-y-2 font-mono text-sm">
+                    <p><span className="text-blue-400">&gt;&gt;&gt;</span> <span className="text-white/70">- 命令执行输出前缀</span></p>
+                    <p><span className="text-rose-400">红色文字</span> <span className="text-white/70">- 错误信息 [ERROR] 前缀</span></p>
+                    <p><span className="text-white/50">灰色文字</span> <span className="text-white/70">- 普通日志消息</span></p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -462,38 +474,79 @@ export default function DocsPage() {
                 <span className="material-symbols-outlined text-primary mr-3">settings</span>
                 系统设置
               </h2>
-              <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
-                <p className="text-on-surface-variant leading-relaxed mb-6">
-                  通过「系统设置」页面，您可以随时修改以下配置：
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-surface-container-low rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="material-symbols-outlined text-primary text-sm">code</span>
-                      <p className="font-headline font-semibold text-on-surface">Git 仓库配置</p>
+              <div className="space-y-6">
+                <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
+                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">Git 仓库配置</h3>
+                  <p className="text-on-surface-variant leading-relaxed mb-4">
+                    通过「系统设置 → Git 仓库」标签页，可配置以下参数：
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-primary text-sm">cloud</span>
+                        <p className="font-headline font-semibold text-on-surface">远程仓库地址</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">OpenLearn 平台的 Git 仓库 URL</p>
                     </div>
-                    <p className="text-sm text-on-surface-variant">修改远程仓库地址、分支名称等</p>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-primary text-sm">folder</span>
+                        <p className="font-headline font-semibold text-on-surface">本地路径</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">本地代码存放目录，支持文件选择器浏览</p>
+                    </div>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-primary text-sm">account_tree</span>
+                        <p className="font-headline font-semibold text-on-surface">分支与版本文件</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">跟踪分支、release.log 和 CHANGELOG.md 路径</p>
+                    </div>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-primary text-sm">language</span>
+                        <p className="font-headline font-semibold text-on-surface">Web 服务地址</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">ASP.NET 服务的访问 URL 和端口</p>
+                    </div>
                   </div>
-                  <div className="bg-surface-container-low rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="material-symbols-outlined text-primary text-sm">folder</span>
-                      <p className="font-headline font-semibold text-on-surface">存储路径配置</p>
-                    </div>
-                    <p className="text-sm text-on-surface-variant">更改本地代码存放路径</p>
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm text-on-surface-variant"><strong>高级选项开关：</strong></p>
+                    <ul className="text-sm text-on-surface-variant space-y-1 list-disc list-inside">
+                      <li>强制用远端覆盖本地冲突</li>
+                      <li>拉取前自动备份当前版本</li>
+                      <li>自动恢复 web.config 不被远程覆盖</li>
+                    </ul>
                   </div>
-                  <div className="bg-surface-container-low rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="material-symbols-outlined text-primary text-sm">language</span>
-                      <p className="font-headline font-semibold text-on-surface">Web 服务地址</p>
+                </div>
+
+                <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
+                  <h3 className="font-headline font-bold text-on-surface text-lg mb-4">Node.js 环境管理</h3>
+                  <p className="text-on-surface-variant leading-relaxed mb-4">
+                    通过「系统设置 → Node.js 环境」标签页，可管理开发环境：
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>
+                        <p className="font-headline font-semibold text-on-surface">Node.js 版本</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">检测当前安装的 Node.js 版本，未安装时提供一键安装按钮</p>
                     </div>
-                    <p className="text-sm text-on-surface-variant">配置 Web 服务的访问地址和端口</p>
-                  </div>
-                  <div className="bg-surface-container-low rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="material-symbols-outlined text-primary text-sm">restart_alt</span>
-                      <p className="font-headline font-semibold text-on-surface">重新运行向导</p>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-blue-500 text-sm">package</span>
+                        <p className="font-headline font-semibold text-on-surface">pnpm 版本</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">检测 pnpm 版本，支持一键安装（需 Node.js 已安装）</p>
                     </div>
-                    <p className="text-sm text-on-surface-variant">清除现有配置，重新开始设置流程</p>
+                    <div className="bg-surface-container-low rounded-xl p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="material-symbols-outlined text-violet-500 text-sm">cloud_sync</span>
+                        <p className="font-headline font-semibold text-on-surface">NPM 镜像源</p>
+                      </div>
+                      <p className="text-sm text-on-surface-variant">一键切换：官方源 / 淘宝镜像 / 腾讯云镜像</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -556,7 +609,7 @@ export default function DocsPage() {
                   <p>系统内置了基于 Rust 原子的全局锁机制。当有一个 Git 任务（如克隆或同步）正在运行时，系统会自动拦截并排斥其他冲突请求，确保仓库数据的一致性，防止多线程操作导致的代码损坏。</p>
                 </FeatureCard>
                 <FeatureCard icon="settings_backup_restore" title="配置自动保护">
-                  <p>在执行版本更新或覆盖操作时，系统会自动检测并暂存本地的 <code>web.config</code> 文件。任务完成后，系统会强制将其恢复，确保您的本地自定义连接字符串和服务器设置不被远程版本覆盖。</p>
+                  <p>在执行版本更新或覆盖操作时，系统会自动检测并暂存本地的 <code>web.config</code> 文件。任务完成后，系统会强制将其恢复，确保本地自定义连接字符串和服务器设置不被远程版本覆盖。</p>
                 </FeatureCard>
               </div>
             </div>
@@ -584,7 +637,7 @@ export default function DocsPage() {
             </div>
 
             <footer className="text-center py-8 text-on-surface-variant text-sm">
-              <p>OpenLearn Manager v0.2.1 · Built with Next.js · © 2026 OpenLearn Manager Team</p>
+              <p>OpenLearn Manager v2.0.1 · Built with Next.js & Tauri · © 2026 OpenLearn Manager Team</p>
             </footer>
           </div>
         </div>

@@ -55,15 +55,7 @@ describe('Dashboard', () => {
 
 
 
-    expect(screen.getByText('系统正常运行时间')).toBeInTheDocument();
 
-    // Wait for the state to update with getSystemInfo data
-    await waitFor(() => {
-      // The hydrate function sets remoteStatus and sysInfo using getSystemInfo.
-      // But it seems getSystemInfo mock is somehow rejected?
-      // "45" is the fallback value we put in sysInfo defaults? No, 45 is from sysInfo undefined fallback: `{sysInfo?.uptimeDays ?? 45}`. Let's check page.tsx fallback
-      expect(screen.getByText('系统正常运行时间')).toBeInTheDocument();
-    });
 
     expect(screen.getByText('remote log')).toBeInTheDocument();
 

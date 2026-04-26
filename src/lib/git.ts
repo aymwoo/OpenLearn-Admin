@@ -227,17 +227,6 @@ export async function listenServiceLog(handler: (log: string) => void): Promise<
 
 
 
-export interface WebServiceInfo {
-  studentCount: number;
-  lessonCount: number;
-  workCount: number;
-  systemUptime: string;
-  processStartTime: string;
-  aspNetMemory: string;
-  aspNetThreadCount: number;
-  dbSize?: string;
-}
-
 /**
  * 从已经运行的web服务页面获取系统信息
  */
@@ -297,12 +286,22 @@ export async function isPortOccupied(port: number): Promise<boolean> {
   return await invoke<boolean>('is_port_occupied', { port });
 }
 
-export async function getWebServiceInfo(url: string): Promise<WebServiceInfo | null> {
-  const result = await invoke<WebServiceInfo | null>('get_web_service_info', { url });
-  if (!result) {
-    console.warn("Web Service Info fetch failed: 无法连接到 Web 服务，请检查服务是否启动");
-  }
-  return result;
+export interface WebServiceInfo {
+  studentCount?: number;
+  lessonCount?: number;
+  workCount?: number;
+  systemUptime?: string;
+  aspNetMemory?: number;
+  aspNetThreadCount?: number;
+  dbSize?: string;
+}
+
+export async function getWebServiceInfo(url: string): Promise<boolean> {
+  return await invoke<boolean>('get_web_service_info', { url });
+}
+
+export async function fetchWebServiceBusinessInfo(url: string): Promise<WebServiceInfo | null> {
+  return await invoke<WebServiceInfo | null>('fetch_web_service_business_info', { url });
 }
 
 export interface DbConnectionStatus {
