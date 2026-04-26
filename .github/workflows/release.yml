@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
-    name: release (${{ matrix.platform }}${{ matrix.variant && format(' {0}', matrix.variant) || '' }})
+  build:
+    name: build (${{ matrix.platform }}${{ matrix.variant && format(' {0}', matrix.variant) || '' }})
     permissions:
       contents: write
 
@@ -141,9 +141,9 @@ jobs:
           path: src-tauri/target/release/bundle/
           retention-days: 1
 
-  release:
+  publish:
     name: create-release
-    needs: [release]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
