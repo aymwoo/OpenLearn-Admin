@@ -2,6 +2,16 @@
 
 所有对本项目的显著更改都将记录在此文件中。
 
+## [0.2.12] - 2026-04-27
+
+### 修复
+- **Windows Node.js 安装收口**：梳理并固化 Windows online/full Node.js MSI 安装链路，统一使用 npm readiness gate 作为安装成功判据，避免分支漂移。
+- **Gitee HTTPS 认证修复**（同上版本）：修复了使用 Gitee HTTPS 地址克隆时出现的 "too many redirects or authentication replays" 错误。
+
+### 优化
+- **Windows full bundle 契约强化**：补足回归测试锁住 `resources/nodejs` 扫描目录、多个 `.msi` 选择规则与 node/npm/pnpm 路径拼装，确保后续改动不会导致 regression。
+- **构建诊断优化**：当 release workflow 缺失 `assets-windows` 下的 MSI 时，直接提示 `assets-windows -> resources/nodejs` 契约路径，便于快速定位构建配置问题。
+
 ## [0.2.6] - 2026-04-26
 
 ### 修复
