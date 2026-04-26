@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-27 - Completed quick task 260427-07s: 修复 Windows online/full Node.js MSI 安装链路，统一程序内 node/npm/pnpm 路径解析与安装后 npm readiness 校验，并固化 assets-windows 到 resources/nodejs 的 full bundle 契约
+2026-04-26 - Completed quick task 260427-8mm: 梳理并固化 Windows online/full Node.js MSI 安装链路，统一安装后 npm readiness 收尾、补足 bundled MSI 回归测试，并明确 assets-windows 到 resources/nodejs 的 full bundle 契约提示
 
 ---
 
@@ -36,3 +36,4 @@
 | 260426-ihi | 修复 Rust git2 在 Gitee HTTPS 克隆时报 too many redirects or authentication replays | 2026-04-26 | 26b243e | [260426-ihi-rust-git2-gitee-https-too-many-redirects](./quick/260426-ihi-rust-git2-gitee-https-too-many-redirects/) |
 | 260426-wph | 修复 Windows 打包应用中的 Node.js 安装逻辑，确保 online 版本安装失败时给出可诊断错误，full 版本将 assets-windows 中的 Node.js MSI 正确打入安装包并可从 resource_dir 检测到 | 2026-04-26 | a2dc0a0 | [260426-wph-windows-node-js-online-full-assets-windo](./quick/260426-wph-windows-node-js-online-full-assets-windo/) |
 | 260427-07s | 修复 Windows online/full Node.js MSI 安装链路，统一程序内 npm/pnpm 命中刚安装的 Windows Node 目录，并固化 assets-windows → resources/nodejs 的 full bundle 契约 | 2026-04-27 | 92bbf98 | [260427-07s-windows-online-full-node-js-online-msi-p](./quick/260427-07s-windows-online-full-node-js-online-msi-p/) |
+| 260427-8mm | 梳理并固化 Windows online/full Node.js MSI 安装链路，统一安装后 npm readiness 收尾、补足 bundled MSI 回归测试，并明确 assets-windows 到 resources/nodejs 的 full bundle 契约提示 | 2026-04-26 | 9f78612 | [260427-8mm-windows-full-msi-path-npm-full-assets-wi](./quick/260427-8mm-windows-full-msi-path-npm-full-assets-wi/) |
