@@ -17,7 +17,6 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-24.04
-          - platform: macos-latest
           - platform: windows-latest
             variant: online
           - platform: windows-latest
