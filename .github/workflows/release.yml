@@ -109,6 +109,14 @@ jobs:
         if: matrix.platform == 'windows-latest' && matrix.variant == 'online'
         run: pnpm tauri build --bundles nsis
 
+      - name: Upload Windows online artifacts
+        if: matrix.platform == 'windows-latest' && matrix.variant == 'online'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-online-bundle
+          path: src-tauri/target/release/bundle/nsis/
+          retention-days: 1
+
       - name: Build Windows Full variant
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
         env:
