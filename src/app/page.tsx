@@ -1018,50 +1018,13 @@ const applyDashboardData = (data: DashboardData) => {
                   </p>
                 </div>
               </div>
-            </div>
-            
-            {/* Row 3: Terminal */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm h-64 flex flex-col font-mono text-sm relative overflow-hidden">
-              <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-                <div className="flex space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
-                  <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
-                  <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
-                </div>
-                <div className="flex items-center space-x-2">
-<p className="text-slate-400 text-xs tracking-wider">
-                     CHANGELOG
-                   </p>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto text-slate-600 space-y-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent p-2">
-                {terminalLogs.length > 0 ? (
-                  terminalLogs.map((log, i) => (
-                    <p key={i} className="leading-relaxed">
-                      <span className="text-slate-400 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                      <span className={
-                        log.toLowerCase().includes("error") || log.includes("错误") 
-                          ? "text-rose-600" 
-                          : log.toLowerCase().includes("warn") || log.includes("警告")
-                          ? "text-amber-600"
-                          : "text-emerald-600"
-                      }>
-                        {log}
-                      </span>
-                    </p>
-                  ))
-                ) : localDetails?.changelogSection ? (
-                  <div className="space-y-2">
-                    <p className="text-slate-400 text-xs">本地版本 {localDetails?.version} 最近更新：</p>
-                    <pre className="text-slate-700 whitespace-pre-wrap font-mono text-sm leading-relaxed">{localDetails.changelogSection}</pre>
-                    {message && (
-                      <p className="mt-2 pt-2 border-t border-slate-200">
-                        <span
-                          className={
-                            message.includes("失败") || message.includes("error")
-                              ? "text-rose-600"
-                              : "text-amber-600"
-                          }
+</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
                         >
                           {message}
                         </span>

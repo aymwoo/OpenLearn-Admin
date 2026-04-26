@@ -5,7 +5,7 @@
   "identifier": "com.openlearn.manager",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://localhost:3000",
+    "devUrl": "http://localhost:3001",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../out"
   },
@@ -42,7 +42,7 @@
   },
   "plugins": {
     "shell": {
-      "open": "https?://**"
+      "open": "https?://(.+)"
     }
   }
 }
