@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-26 - Completed quick task 260426-ihi: 修复 Rust git2 在 Gitee HTTPS 克隆时报 too many redirects or authentication replays
+2026-04-26 - Completed quick task 260426-wph: 修复 Windows 打包应用中的 Node.js 安装逻辑，确保 online 版本安装失败时给出可诊断错误，full 版本将 assets-windows 中的 Node.js MSI 正确打入安装包并可从 resource_dir 检测到
 
 ---
 
@@ -34,3 +34,4 @@
 | 260421-r1p | 修复 GBM buffer 错误 | 2026-04-21 | d8adcd6 | [260421-r1p-gbm-buffer](./quick/260421-r1p-gbm-buffer/) || 260421-platform-services | Implement cross-platform start/stop service commands | 2026-04-21 | HEAD | [260421-platform-services](./quick/260421-platform-services/) |
 | 260425-b6e | 修复 Tauri Rust 构建错误：移除 run 的错误 command 标注，恢复 is_windows 命令与 thread 导入，确保 release workflow 可构建 | 2026-04-25 | 8b039db | [260425-b6e-tauri-rust-run-command-is-windows-thread](./quick/260425-b6e-tauri-rust-run-command-is-windows-thread/) |
 | 260426-ihi | 修复 Rust git2 在 Gitee HTTPS 克隆时报 too many redirects or authentication replays | 2026-04-26 | 26b243e | [260426-ihi-rust-git2-gitee-https-too-many-redirects](./quick/260426-ihi-rust-git2-gitee-https-too-many-redirects/) |
+| 260426-wph | 修复 Windows 打包应用中的 Node.js 安装逻辑，确保 online 版本安装失败时给出可诊断错误，full 版本将 assets-windows 中的 Node.js MSI 正确打入安装包并可从 resource_dir 检测到 | 2026-04-26 | a2dc0a0 | [260426-wph-windows-node-js-online-full-assets-windo](./quick/260426-wph-windows-node-js-online-full-assets-windo/) |
