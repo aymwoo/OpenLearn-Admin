@@ -88,7 +88,8 @@ jobs:
           MSI_SOURCE="src-tauri/assets-windows/${WINDOWS_FULL_NODE_MSI_NAME}"
           MSI_TARGET_DIR="src-tauri/resources/nodejs"
           if [ ! -f "$MSI_SOURCE" ]; then
-            echo "Missing Windows full Node.js MSI: $MSI_SOURCE"
+            echo "Missing Windows full Node.js MSI bundle source: $MSI_SOURCE"
+            echo "Expected contract: src-tauri/assets-windows/*.msi -> src-tauri/resources/nodejs"
             exit 1
           fi
           mkdir -p "$MSI_TARGET_DIR"
