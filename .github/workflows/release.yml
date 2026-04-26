@@ -84,7 +84,7 @@ jobs:
       - name: Copy Node.js MSI for full bundle (Windows)
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
         run: |
-          mkdir -p src-tauri/resources/nodejs
+          mkdir -p src-tauri/resources/nodejs || true
           cp src-tauri/assets-windows/node-v24.15.0-x64.msi src-tauri/resources/nodejs/
           echo "Node.js MSI copied successfully."
 
