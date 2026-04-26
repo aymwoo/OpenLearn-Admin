@@ -95,17 +95,29 @@ const applyDashboardData = (data: DashboardData) => {
         return;
       }
 
-      if (!cfg) {
+      // 检查是否有后台任务在运行
+      let hasBackgroundTask = false;
+      try {
+        const syncProgress = await getSyncProgress();
+        if (syncProgress && syncProgress.stage !== 'idle' && syncProgress.stage !== 'done' && syncProgress.stage !== 'error') {
+          hasBackgroundTask = true;
+          if (mounted) setProgress(syncProgress);
+        }
+      } catch {}
+
+      if (!cfg && !hasBackgroundTask) {
         router.push('/setup');
         return;
       }
 
-      setConfig(cfg);
+      if (cfg) {
+        setConfig(cfg);
+      }
 
       if (typeof window !== 'undefined' && sessionStorage.getItem('settings_updated') === 'true') {
         sessionStorage.removeItem('settings_updated');
         setShowUpdatePrompt(true);
-      } else {
+      } else if (cfg) {
         getDashboardData(cfg)
           .then((data) => {
             if (!mounted) return;
