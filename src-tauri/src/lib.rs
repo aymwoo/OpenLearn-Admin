@@ -1126,35 +1126,98 @@ async fn get_dashboard_data(config: GitConfig) -> Result<DashboardData, String> 
 
 #[command]
 async fn check_node_env() -> Result<NodeEnvStatus, String> {
-    let node_version = thread::spawn(|| {
-        std::process::Command::new("node")
-            .arg("-v")
-            .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-                } else {
-                    None
+    let is_win = cfg!(target_os = "windows");
+
+    let node_version = thread::spawn(move || {
+        if is_win {
+            let node_paths = vec![
+                r"C:\Program Files\nodejs\node.exe",
+                r"C:\Program Files (x86)\nodejs\node.exe",
+            ];
+            for path in &node_paths {
+                if std::path::Path::new(path).exists() {
+                    if let Ok(output) = std::process::Command::new(path).arg("-v").output() {
+                        if output.status.success() {
+                            return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                        }
+                    }
                 }
-            })
+            }
+            if let Ok(output) = std::process::Command::new("node").arg("-v").output() {
+                if output.status.success() {
+                    return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                }
+            }
+            None
+        } else {
+            std::process::Command::new("node")
+                .arg("-v")
+                .output()
+                .ok()
+                .and_then(|output| {
+                    if output.status.success() {
+                        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+        }
     }).join().map_err(|_| "检测 Node.js 线程崩溃".to_string())?;
 
-    let pnpm_version = thread::spawn(|| {
-        std::process::Command::new("pnpm")
-            .arg("-v")
-            .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-                } else {
-                    None
+    let pnpm_version = thread::spawn(move || {
+        if is_win {
+            let node_paths = vec![
+                r"C:\Program Files\nodejs",
+                r"C:\Program Files (x86)\nodejs",
+            ];
+            for path in &node_paths {
+                let pnpm_path = std::path::Path::new(path).join("pnpm.cmd");
+                if pnpm_path.exists() {
+                    if let Ok(output) = std::process::Command::new(&pnpm_path).arg("-v").output() {
+                        if output.status.success() {
+                            return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                        }
+                    }
                 }
-            })
+            }
+            if let Ok(output) = std::process::Command::new("pnpm").arg("-v").output() {
+                if output.status.success() {
+                    return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                }
+            }
+            None
+        } else {
+            std::process::Command::new("pnpm")
+                .arg("-v")
+                .output()
+                .ok()
+                .and_then(|output| {
+                    if output.status.success() {
+                        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+        }
     }).join().map_err(|_| "检测 pnpm 线程崩溃".to_string())?;
 
-    let registry = thread::spawn(|| {
+    let registry = thread::spawn(move || {
+        if is_win {
+            let node_paths = vec![
+                r"C:\Program Files\nodejs",
+                r"C:\Program Files (x86)\nodejs",
+            ];
+            for path in &node_paths {
+                let npm_path = std::path::Path::new(path).join("npm.cmd");
+                if npm_path.exists() {
+                    if let Ok(output) = std::process::Command::new(&npm_path).args(["config", "get", "registry"]).output() {
+                        if output.status.success() {
+                            return String::from_utf8_lossy(&output.stdout).trim().to_string();
+                        }
+                    }
+                }
+            }
+        }
         std::process::Command::new("npm")
             .args(["config", "get", "registry"])
             .output()
