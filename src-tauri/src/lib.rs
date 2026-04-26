@@ -1420,16 +1420,52 @@ async fn install_node_env(window: Window) -> Result<String, String> {
 async fn install_pnpm(window: Window) -> Result<String, String> {
     window.emit("env-install-progress", "正在安装 pnpm...").ok();
 
-    thread::spawn(move || {
-        let output = std::process::Command::new("npm")
-            .args(["install", "-g", "pnpm"])
-            .output()
-            .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
+    let is_win = cfg!(target_os = "windows");
 
-        if output.status.success() {
-            Ok("pnpm 安装成功".to_string())
+    thread::spawn(move || {
+        if is_win {
+            let node_paths = vec![
+                r"C:\Program Files\nodejs",
+                r"C:\Program Files (x86)\nodejs",
+            ];
+            let mut found_node = None;
+            for path in &node_paths {
+                let npm_path = std::path::Path::new(path).join("npm.cmd");
+                if npm_path.exists() {
+                    found_node = Some(path.to_string());
+                    break;
+                }
+            }
+            if let Some(node_dir) = found_node {
+                let mut cmd = std::process::Command::new(&format!("{}\\npm.cmd", node_dir));
+                cmd.args(["install", "-g", "pnpm"]);
+                let output = cmd.output().map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
+                if output.status.success() {
+                    Ok("pnpm 安装成功".to_string())
+                } else {
+                    Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+                }
+            } else {
+                let output = std::process::Command::new("npm")
+                    .args(["install", "-g", "pnpm"])
+                    .output()
+                    .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
+                if output.status.success() {
+                    Ok("pnpm 安装成功".to_string())
+                } else {
+                    Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+                }
+            }
         } else {
-            Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+            let output = std::process::Command::new("npm")
+                .args(["install", "-g", "pnpm"])
+                .output()
+                .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
+            if output.status.success() {
+                Ok("pnpm 安装成功".to_string())
+            } else {
+                Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+            }
         }
     }).join().map_err(|_| "安装 pnpm 线程崩溃".to_string())?
 }
