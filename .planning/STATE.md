@@ -7,7 +7,7 @@
 
 ### Last activity
 
-2026-04-25 - Completed quick task 260425-b6e: 修复 Tauri Rust 构建错误：移除 run 的错误 command 标注，恢复 is_windows 命令与 thread 导入，确保 release workflow 可构建
+2026-04-26 - Completed quick task 260426-ihi: 修复 Rust git2 在 Gitee HTTPS 克隆时报 too many redirects or authentication replays
 
 ---
 
@@ -33,3 +33,4 @@
 | 260421-rjo-clone | 添加 get_dashboard_data 自动克隆逻辑 | 2026-04-21 | 241e134 | [260421-rjo-clone](./quick/260421-rjo-clone/) |
 | 260421-r1p | 修复 GBM buffer 错误 | 2026-04-21 | d8adcd6 | [260421-r1p-gbm-buffer](./quick/260421-r1p-gbm-buffer/) || 260421-platform-services | Implement cross-platform start/stop service commands | 2026-04-21 | HEAD | [260421-platform-services](./quick/260421-platform-services/) |
 | 260425-b6e | 修复 Tauri Rust 构建错误：移除 run 的错误 command 标注，恢复 is_windows 命令与 thread 导入，确保 release workflow 可构建 | 2026-04-25 | 8b039db | [260425-b6e-tauri-rust-run-command-is-windows-thread](./quick/260425-b6e-tauri-rust-run-command-is-windows-thread/) |
+| 260426-ihi | 修复 Rust git2 在 Gitee HTTPS 克隆时报 too many redirects or authentication replays | 2026-04-26 | 26b243e | [260426-ihi-rust-git2-gitee-https-too-many-redirects](./quick/260426-ihi-rust-git2-gitee-https-too-many-redirects/) |
