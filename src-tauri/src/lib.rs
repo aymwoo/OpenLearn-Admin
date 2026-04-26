@@ -788,6 +788,109 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
 }
 
 #[derive(Debug, Clone)]
+struct WindowsNodeCommandPaths {
+    node_dir: PathBuf,
+    node_exe: PathBuf,
+    npm_cmd: PathBuf,
+    pnpm_cmd: PathBuf,
+}
+
+fn windows_node_install_dir_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Some(path) = env::var_os("PATH") {
+        candidates.extend(env::split_paths(&path));
+    }
+
+    candidates.push(PathBuf::from(r"C:\Program Files\nodejs"));
+    candidates.push(PathBuf::from(r"C:\Program Files (x86)\nodejs"));
+
+    let mut deduped = Vec::new();
+    for candidate in candidates {
+        if !deduped.iter().any(|existing: &PathBuf| existing == &candidate) {
+            deduped.push(candidate);
+        }
+    }
+
+    deduped
+}
+
+fn build_windows_node_command_paths(node_dir: PathBuf) -> WindowsNodeCommandPaths {
+    WindowsNodeCommandPaths {
+        node_exe: node_dir.join("node.exe"),
+        npm_cmd: node_dir.join("npm.cmd"),
+        pnpm_cmd: node_dir.join("pnpm.cmd"),
+        node_dir,
+    }
+}
+
+fn resolve_windows_node_command_paths() -> Option<WindowsNodeCommandPaths> {
+    windows_node_install_dir_candidates()
+        .into_iter()
+        .map(build_windows_node_command_paths)
+        .find(|paths| paths.node_exe.exists() && paths.npm_cmd.exists())
+}
+
+fn prepend_command_path(extra_dirs: &[PathBuf]) -> Result<std::ffi::OsString, String> {
+    let mut joined_paths = extra_dirs.to_vec();
+
+    if let Some(current_path) = env::var_os("PATH") {
+        joined_paths.extend(env::split_paths(&current_path));
+    }
+
+    env::join_paths(joined_paths)
+        .map_err(|e| format!("拼接 PATH 失败: {}", e))
+}
+
+fn inject_windows_node_env(
+    command: &mut std::process::Command,
+    node_paths: Option<&WindowsNodeCommandPaths>,
+) -> Result<(), String> {
+    command.envs(env::vars());
+
+    if let Some(node_paths) = node_paths {
+        let updated_path = prepend_command_path(std::slice::from_ref(&node_paths.node_dir))?;
+        command.env("PATH", updated_path);
+    }
+
+    Ok(())
+}
+
+fn read_command_stdout(output: &std::process::Output) -> Option<String> {
+    if output.status.success() {
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        None
+    }
+}
+
+fn command_output_error(prefix: &str, output: &std::process::Output) -> String {
+    format!(
+        "{}；stdout: {}；stderr: {}",
+        prefix,
+        format_command_output_text(&output.stdout),
+        format_command_output_text(&output.stderr)
+    )
+}
+
+fn command_spawn_error(prefix: &str, error: std::io::Error) -> String {
+    format!("{}: {}", prefix, error)
+}
+
+fn run_windows_node_command(
+    program: &Path,
+    args: &[&str],
+    node_paths: &WindowsNodeCommandPaths,
+) -> Result<std::process::Output, String> {
+    let mut command = std::process::Command::new(program);
+    inject_windows_node_env(&mut command, Some(node_paths))?;
+    command.args(args);
+    command
+        .output()
+        .map_err(|e| command_spawn_error(&format!("启动命令失败 {}", program.display()), e))
+}
+
+#[derive(Debug, Clone)]
 struct BundledNodeMsiDiscovery {
     selected_msi: Option<PathBuf>,
     scanned_dirs: Vec<PathBuf>,
@@ -1253,22 +1356,16 @@ async fn check_node_env() -> Result<NodeEnvStatus, String> {
 
     let node_version = thread::spawn(move || {
         if is_win {
-            let node_paths = vec![
-                r"C:\Program Files\nodejs\node.exe",
-                r"C:\Program Files (x86)\nodejs\node.exe",
-            ];
-            for path in &node_paths {
-                if std::path::Path::new(path).exists() {
-                    if let Ok(output) = std::process::Command::new(path).arg("-v").output() {
-                        if output.status.success() {
-                            return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
-                        }
+            if let Some(node_paths) = resolve_windows_node_command_paths() {
+                if let Ok(output) = run_windows_node_command(&node_paths.node_exe, &["-v"], &node_paths) {
+                    if let Some(version) = read_command_stdout(&output) {
+                        return Some(version);
                     }
                 }
             }
             if let Ok(output) = std::process::Command::new("node").arg("-v").output() {
-                if output.status.success() {
-                    return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                if let Some(version) = read_command_stdout(&output) {
+                    return Some(version);
                 }
             }
             None
@@ -1289,23 +1386,18 @@ async fn check_node_env() -> Result<NodeEnvStatus, String> {
 
     let pnpm_version = thread::spawn(move || {
         if is_win {
-            let node_paths = vec![
-                r"C:\Program Files\nodejs",
-                r"C:\Program Files (x86)\nodejs",
-            ];
-            for path in &node_paths {
-                let pnpm_path = std::path::Path::new(path).join("pnpm.cmd");
-                if pnpm_path.exists() {
-                    if let Ok(output) = std::process::Command::new(&pnpm_path).arg("-v").output() {
-                        if output.status.success() {
-                            return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+            if let Some(node_paths) = resolve_windows_node_command_paths() {
+                if node_paths.pnpm_cmd.exists() {
+                    if let Ok(output) = run_windows_node_command(&node_paths.pnpm_cmd, &["-v"], &node_paths) {
+                        if let Some(version) = read_command_stdout(&output) {
+                            return Some(version);
                         }
                     }
                 }
             }
             if let Ok(output) = std::process::Command::new("pnpm").arg("-v").output() {
-                if output.status.success() {
-                    return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                if let Some(version) = read_command_stdout(&output) {
+                    return Some(version);
                 }
             }
             None
@@ -1326,17 +1418,10 @@ async fn check_node_env() -> Result<NodeEnvStatus, String> {
 
     let registry = thread::spawn(move || {
         if is_win {
-            let node_paths = vec![
-                r"C:\Program Files\nodejs",
-                r"C:\Program Files (x86)\nodejs",
-            ];
-            for path in &node_paths {
-                let npm_path = std::path::Path::new(path).join("npm.cmd");
-                if npm_path.exists() {
-                    if let Ok(output) = std::process::Command::new(&npm_path).args(["config", "get", "registry"]).output() {
-                        if output.status.success() {
-                            return String::from_utf8_lossy(&output.stdout).trim().to_string();
-                        }
+            if let Some(node_paths) = resolve_windows_node_command_paths() {
+                if let Ok(output) = run_windows_node_command(&node_paths.npm_cmd, &["config", "get", "registry"], &node_paths) {
+                    if let Some(registry) = read_command_stdout(&output) {
+                        return registry;
                     }
                 }
             }
@@ -1369,62 +1454,46 @@ async fn run_project_task(
     task: String,
     path: String,
 ) -> Result<String, String> {
-    let app_handle = window.app_handle();
-    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
-    let tools_dir = data_dir.join("tools");
     let project_path = std::path::Path::new(&path);
 
     // 自动检测包管理器
     let use_pnpm = project_path.join("pnpm-lock.yaml").exists();
     let cmd_name = if use_pnpm { "pnpm" } else { "npm" };
 
-    // 寻找本地 Node.js 路径
-    let mut node_bin_path = None;
-    let mut search_dirs = vec![tools_dir.clone()];
-    if let Ok(resource_dir) = app_handle.path().resource_dir() {
-        search_dirs.push(resource_dir.join("nodejs"));
-    }
-    for dir in &search_dirs {
-        if dir.exists() {
-            if let Ok(entries) = std::fs::read_dir(dir) {
-                for entry in entries.flatten() {
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    if name.starts_with("node-v") {
-                        let p = if cfg!(target_os = "windows") {
-                            entry.path()
-                        } else {
-                            entry.path().join("bin")
-                        };
-                        if p.exists() {
-                            node_bin_path = Some(p);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        if node_bin_path.is_some() {
-            break;
-        }
-    }
-
     let is_dev = task == "dev";
-    let mut cmd = std::process::Command::new(cmd_name);
-    
-    // 继承环境变量
-    cmd.envs(std::env::vars());
+    let windows_node_paths = if cfg!(target_os = "windows") {
+        Some(resolve_windows_node_command_paths().ok_or_else(|| {
+            format!("未找到可用的 Windows Node.js 安装目录，无法执行 {}", cmd_name)
+        })?)
+    } else {
+        None
+    };
 
-    // 注入路径
-    if let Some(bin_path) = node_bin_path {
-        let current_path = std::env::var_os("PATH").unwrap_or_default();
-        let mut new_path = bin_path.clone().into_os_string();
-        if cfg!(target_os = "windows") {
-            new_path.push(";");
+    let command_program = if let Some(node_paths) = windows_node_paths.as_ref() {
+        let explicit_path = if use_pnpm {
+            &node_paths.pnpm_cmd
         } else {
-            new_path.push(":");
+            &node_paths.npm_cmd
+        };
+
+        if !explicit_path.exists() {
+            return Err(format!(
+                "未找到 {} 可执行文件: {}",
+                cmd_name,
+                explicit_path.display()
+            ));
         }
-        new_path.push(current_path);
-        cmd.env("PATH", new_path);
+
+        explicit_path.to_path_buf()
+    } else {
+        PathBuf::from(cmd_name)
+    };
+
+    let mut cmd = std::process::Command::new(&command_program);
+    if let Some(node_paths) = windows_node_paths.as_ref() {
+        inject_windows_node_env(&mut cmd, Some(node_paths))?;
+    } else {
+        cmd.envs(std::env::vars());
     }
 
     cmd.current_dir(&path);
@@ -1502,15 +1571,21 @@ async fn stop_project_task(state: State<'_, ProcessManager>, task: String) -> Re
 #[command]
 async fn set_npm_registry(url: String) -> Result<String, String> {
     thread::spawn(move || {
-        let output = std::process::Command::new("npm")
-            .args(["config", "set", "registry", &url])
-            .output()
-            .map_err(|e| format!("无法执行 npm 命令: {}", e))?;
+        let output = if cfg!(target_os = "windows") {
+            let node_paths = resolve_windows_node_command_paths()
+                .ok_or_else(|| "未找到可用的 Windows Node.js 安装目录，无法设置 npm 镜像源".to_string())?;
+            run_windows_node_command(&node_paths.npm_cmd, &["config", "set", "registry", &url], &node_paths)?
+        } else {
+            std::process::Command::new("npm")
+                .args(["config", "set", "registry", &url])
+                .output()
+                .map_err(|e| format!("无法执行 npm 命令: {}", e))?
+        };
 
         if output.status.success() {
             Ok(format!("成功切换镜像源至: {}", url))
         } else {
-            Err(format!("切换失败: {}", String::from_utf8_lossy(&output.stderr)))
+            Err(command_output_error("切换 npm 镜像源失败", &output))
         }
     }).join().map_err(|_| "设置镜像源线程崩溃".to_string())?
 }
@@ -1705,37 +1780,19 @@ async fn install_pnpm(window: Window) -> Result<String, String> {
 
     thread::spawn(move || {
         if is_win {
-            let node_paths = vec![
-                r"C:\Program Files\nodejs",
-                r"C:\Program Files (x86)\nodejs",
-            ];
-            let mut found_node = None;
-            for path in &node_paths {
-                let npm_path = std::path::Path::new(path).join("npm.cmd");
-                if npm_path.exists() {
-                    found_node = Some(path.to_string());
-                    break;
-                }
-            }
-            if let Some(node_dir) = found_node {
-                let mut cmd = std::process::Command::new(&format!("{}\\npm.cmd", node_dir));
-                cmd.args(["install", "-g", "pnpm"]);
-                let output = cmd.output().map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
-                if output.status.success() {
-                    Ok("pnpm 安装成功".to_string())
-                } else {
-                    Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
-                }
+            let node_paths = resolve_windows_node_command_paths()
+                .ok_or_else(|| "未找到可用的 Windows Node.js 安装目录，无法安装 pnpm".to_string())?;
+
+            let output = run_windows_node_command(
+                &node_paths.npm_cmd,
+                &["install", "-g", "pnpm"],
+                &node_paths,
+            )?;
+
+            if output.status.success() {
+                Ok("pnpm 安装成功".to_string())
             } else {
-                let output = std::process::Command::new("npm")
-                    .args(["install", "-g", "pnpm"])
-                    .output()
-                    .map_err(|e| format!("执行 npm install -g pnpm 失败: {}", e))?;
-                if output.status.success() {
-                    Ok("pnpm 安装成功".to_string())
-                } else {
-                    Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
-                }
+                Err(command_output_error("安装 pnpm 失败", &output))
             }
         } else {
             let output = std::process::Command::new("npm")
@@ -1745,7 +1802,7 @@ async fn install_pnpm(window: Window) -> Result<String, String> {
             if output.status.success() {
                 Ok("pnpm 安装成功".to_string())
             } else {
-                Err(format!("安装失败: {}", String::from_utf8_lossy(&output.stderr)))
+                Err(command_output_error("安装 pnpm 失败", &output))
             }
         }
     }).join().map_err(|_| "安装 pnpm 线程崩溃".to_string())?
