@@ -20,6 +20,7 @@ import {
   listenPullProgress,
   loadConfig,
   runSmartPull,
+  cancelSync,
   isWindowsHost,
   runProjectTask,
   stopProjectTask,
@@ -168,6 +169,9 @@ const applyDashboardData = (data: DashboardData) => {
         } else if (nextProgress.stage === "error") {
           setMessage(nextProgress.label);
           setLoading(false);
+        } else if (nextProgress.stage === "idle" && nextProgress.label === "操作已取消") {
+          setMessage("操作已取消");
+          setLoading(false);
         }
       }
     })
@@ -247,6 +251,18 @@ const applyDashboardData = (data: DashboardData) => {
       value: parseFloat((bytes / Math.pow(k, i)).toFixed(1)),
       unit: sizes[i],
     };
+  };
+
+  const formatTransferSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+    } else if (bytes >= 1024 * 1024) {
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    } else if (bytes >= 1024) {
+      return `${Math.round(bytes / 1024)} KB`;
+    } else {
+      return `${bytes} B`;
+    }
   };
 
 
@@ -545,7 +561,7 @@ const applyDashboardData = (data: DashboardData) => {
                     </p>
 
                     {loading && (
-                      <div className="mt-6 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <div className="mt-4 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <div className="flex justify-between items-center mb-1.5 px-0.5">
                           <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
                             {progress.stage === 'cloning' ? 'Cloning' : 'Syncing'}
@@ -559,8 +575,16 @@ const applyDashboardData = (data: DashboardData) => {
                             className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_8px_rgba(255,255,255,0.5)]"
                             style={{ width: `${progress.percent}%` }}
                           />
-              </div>
-              </div>
+                        </div>
+                        {progress.receivedBytes != null && progress.receivedBytes > 0 && (
+                          <p className="text-[12px] font-mono opacity-80 mt-1.5">
+                            {formatTransferSize(progress.receivedBytes)}
+                            {progress.totalObjects != null && progress.receivedObjects != null && (
+                              <> · 对象 {progress.receivedObjects}/{progress.totalObjects}</>
+                            )}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
 
