@@ -1380,14 +1380,33 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-linux-x64.tar.xz"
     };
 
-    window.emit("env-install-progress", "正在下载 Node.js...").ok();
-
     let filename = if is_win { "node.msi" } else { "node.tar.xz" };
     let download_path = tools_dir.join(filename);
 
-    let response = reqwest::get(node_url).await.map_err(|e| format!("下载失败: {}", e))?;
-    let content = response.bytes().await.map_err(|e| format!("读取内容失败: {}", e))?;
-    std::fs::write(&download_path, &content).map_err(|e| format!("写入文件失败: {}", e))?;
+    let client = reqwest::Client::new();
+    let response = client.get(node_url).send().await.map_err(|e| format!("下载失败: {}", e))?;
+    let total_size = response.content_length().unwrap_or(0);
+    window.emit("env-install-progress", "正在下载 Node.js (0%)...").ok();
+
+    let mut file = std::fs::File::create(&download_path).map_err(|e| format!("创建文件失败: {}", e))?;
+    let mut downloaded: u64 = 0;
+    let mut stream = response.bytes_stream();
+    let mut last_percent: u32 = 0;
+
+    use futures_util::stream::StreamExt;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("读取下载内容失败: {}", e))?;
+        downloaded += chunk.len() as u64;
+        std::io::Write::write_all(&mut file, &chunk).map_err(|e| format!("写入文件失败: {}", e))?;
+        
+        if total_size > 0 {
+            let percent = ((downloaded as f64 / total_size as f64) * 100.0) as u32;
+            if percent != last_percent && percent % 10 == 0 {
+                window.emit("env-install-progress", format!("正在下载 Node.js ({}%)...", percent)).ok();
+                last_percent = percent;
+            }
+        }
+    }
 
     if is_win {
         window.emit("env-install-progress", "正在安装 Node.js...").ok();
