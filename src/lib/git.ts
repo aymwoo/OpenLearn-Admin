@@ -93,6 +93,21 @@ export interface PullResult {
   remote: VersionDetails;
 }
 
+function normalizeGitErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes('too many redirects') ||
+    lower.includes('authentication replays') ||
+    lower.includes('gitee https 认证被拒绝')
+  ) {
+    return 'Gitee HTTPS 认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT';
+  }
+
+  return message;
+}
+
 export async function getDefaultConfig(): Promise<GitConfig> {
   const isWin = await isWindowsHost();
   return {
@@ -135,7 +150,11 @@ export async function checkLocalRepo(path: string): Promise<boolean> {
 }
 
 export async function runSmartPull(config: GitConfig): Promise<void> {
-  return invoke<void>('run_smart_pull', { config });
+  try {
+    return await invoke<void>('run_smart_pull', { config });
+  } catch (error) {
+    throw new Error(normalizeGitErrorMessage(error));
+  }
 }
 
 export async function listenPullProgress(handler: (progress: FetchProgress) => void): Promise<UnlistenFn> {
@@ -143,7 +162,11 @@ export async function listenPullProgress(handler: (progress: FetchProgress) => v
 }
 
 export async function cloneRepo(url: string, path: string, branch: string = 'main'): Promise<void> {
-  await invoke<string>('git_clone', { url, path, branch });
+  try {
+    await invoke<string>('git_clone', { url, path, branch });
+  } catch (error) {
+    throw new Error(normalizeGitErrorMessage(error));
+  }
 }
 
 export async function pullRepo(path: string, force: boolean = false): Promise<{ success: boolean; message: string }> {
@@ -151,7 +174,7 @@ export async function pullRepo(path: string, force: boolean = false): Promise<{ 
     const result = await invoke<string>('git_pull', { path, force });
     return { success: true, message: result || 'Pull successful' };
   } catch (error: unknown) {
-    return { success: false, message: error instanceof Error ? error.message : String(error) };
+    return { success: false, message: normalizeGitErrorMessage(error) };
   }
 }
 
@@ -181,7 +204,7 @@ export async function getRemoteStatus(
     }>("git_status", { path, branch });
     return result;
   } catch (error) {
-    const msg = typeof error === 'string' ? error : String(error);
+    const msg = normalizeGitErrorMessage(error);
     const isExpected = msg.includes('空文件夹') || msg.includes('请先克隆') || msg.includes('不是有效') || msg.includes('路径不存在') || msg.includes('正在被其他操作');
     if (!isExpected) {
       console.warn("Git status check:", msg);
@@ -207,6 +230,10 @@ export async function getBranches(path: string): Promise<string[]> {
 
 export async function getSyncProgress(): Promise<FetchProgress> {
   return await invoke<FetchProgress>('get_sync_progress');
+}
+
+export async function cancelSync(): Promise<void> {
+  return await invoke<void>('cancel_sync');
 }
 
 export async function backupRepo(sourcePath: string): Promise<string> {
@@ -349,5 +376,4 @@ export async function startDbService(): Promise<string> {
 export async function stopDbService(): Promise<string> {
   return await invoke('stop_db_service');
 }
-
 

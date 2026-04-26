@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { pullRepo,backupRepo } from './git';
+import { cloneRepo, pullRepo, backupRepo, runSmartPull } from './git';
 import { invoke } from '@tauri-apps/api/core';
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -26,6 +26,8 @@ describe('backupRepo', () => {
 
     const sourcePath = '/my/repo/path';
     await expect(backupRepo(sourcePath)).rejects.toThrow('Backup failed');
+  });
+
 describe('git', () => {
   describe('pullRepo', () => {
     beforeEach(() => {
@@ -68,5 +70,53 @@ describe('git', () => {
       expect(invoke).toHaveBeenCalledWith('git_pull', { path: '/path/to/repo', force: false });
       expect(result).toEqual({ success: false, message: 'Authentication failed' });
     });
+
+    it('maps gitee redirect replay errors to actionable chinese guidance', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('too many redirects or authentication replays');
+
+      const result = await pullRepo('/path/to/repo');
+
+      expect(result).toEqual({
+        success: false,
+        message: 'Gitee HTTPS 认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT',
+      });
+    });
   });
+
+  describe('cloneRepo', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('maps clone redirect replay errors to actionable chinese guidance', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('too many redirects or authentication replays');
+
+      await expect(cloneRepo('https://gitee.com/a/b.git', '/path/to/repo')).rejects.toThrow(
+        'Gitee HTTPS 认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT',
+      );
+    });
+  });
+
+  describe('runSmartPull', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('maps smart pull auth replay errors to actionable chinese guidance', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('Gitee HTTPS 认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT');
+
+      await expect(runSmartPull({
+        remoteUrl: 'https://gitee.com/a/b.git',
+        localPath: '/path/to/repo',
+        branch: 'main',
+        forcePush: false,
+        backupBeforePull: true,
+        versionFilePath: 'release.log',
+        changelogFilePath: 'CHANGELOG.md',
+        autoRestoreWebConfig: false,
+      })).rejects.toThrow('Gitee HTTPS 认证被拒绝，请改用 SSH 地址或为 HTTPS 配置可用凭据/PAT');
+    });
+  });
+});
+
 });
