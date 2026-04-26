@@ -1694,7 +1694,8 @@ fn run_smart_pull_logic(window: &Window, cache: Option<&Arc<Mutex<FetchProgress>
 #[cfg(test)]
 mod tests {
     use super::{
-        build_pull_result, default_branch, build_repo_status, extract_version, find_changelog_section,
+        build_pull_result, build_repo_status, default_branch, extract_version,
+        find_changelog_section, https_auth_guidance, is_ssh_remote, normalize_git_operation_error,
         versions_differ, VersionDetails,
     };
 
@@ -1790,6 +1791,37 @@ mod tests {
         );
         assert!(result.skipped);
         assert!(!result.updated);
+    }
+
+    #[test]
+    fn https_auth_guidance_is_gitee_specific() {
+        let message = https_auth_guidance(Some("https://gitee.com/nylon26/openlearnsite.git"));
+        assert!(message.contains("Gitee HTTPS"));
+        assert!(message.contains("SSH"));
+    }
+
+    #[test]
+    fn normalize_git_operation_error_maps_redirect_replay_to_actionable_message() {
+        let error = git2::Error::new(
+            git2::ErrorCode::GenericError,
+            git2::ErrorClass::Http,
+            "too many redirects or authentication replays",
+        );
+
+        let message = normalize_git_operation_error(
+            "拉取远端引用失败 (main)",
+            Some("https://gitee.com/nylon26/openlearnsite.git"),
+            error,
+        );
+
+        assert!(message.contains("Gitee HTTPS 认证被拒绝"));
+        assert!(message.contains("SSH 地址"));
+    }
+
+    #[test]
+    fn ssh_remote_detection_keeps_ssh_path_available() {
+        assert!(is_ssh_remote("git@gitee.com:nylon26/openlearnsite.git"));
+        assert!(is_ssh_remote("ssh://git@gitee.com/nylon26/openlearnsite.git"));
     }
 }
 
