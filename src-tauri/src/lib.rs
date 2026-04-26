@@ -1507,8 +1507,10 @@ async fn install_node_env(window: Window) -> Result<String, String> {
             .map_err(|e| format!("MSI 安装失败: {}", e))?;
         let _ = std::fs::remove_file(download_path);
         if !output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Node.js 安装失败: {}", stderr));
+            let error_msg = if stdout.is_empty() { stderr.to_string() } else { stdout.to_string() };
+            return Err(format!("Node.js 安装失败: {}", error_msg));
         }
     } else {
         window.emit("env-install-progress", "正在解压 Node.js...").ok();
