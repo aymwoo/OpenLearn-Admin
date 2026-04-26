@@ -93,17 +93,21 @@ jobs:
           fi
           echo "Windows full bundle MSI verified: resources/nodejs/${WINDOWS_FULL_NODE_MSI_NAME}"
 
-      - name: Build (standard targets)
-        if: matrix.variant != 'full'
-        run: pnpm tauri build --bundles nsis
+      - name: Build Linux
+        if: matrix.platform == 'ubuntu-24.04'
+        run: pnpm tauri build --bundles deb
 
       - name: Upload Linux artifacts
         if: matrix.platform == 'ubuntu-24.04'
         uses: actions/upload-artifact@v4
         with:
           name: linux-bundle
-          path: src-tauri/target/release/bundle/nsis/
+          path: src-tauri/target/release/bundle/deb/
           retention-days: 1
+
+      - name: Build Windows online
+        if: matrix.platform == 'windows-latest' && matrix.variant == 'online'
+        run: pnpm tauri build --bundles nsis
 
       - name: Build Windows Full variant
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
