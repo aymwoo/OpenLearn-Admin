@@ -849,6 +849,43 @@ fn discover_windows_bundled_node_msi(resource_dir: &Path) -> Result<BundledNodeM
     })
 }
 
+fn format_command_output_text(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes).trim().to_string();
+    if text.is_empty() {
+        "<empty>".to_string()
+    } else {
+        text
+    }
+}
+
+fn format_windows_msi_failure(output: &std::process::Output, context: &str) -> String {
+    let exit_code = output
+        .status
+        .code()
+        .map(|code| code.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    let stdout = format_command_output_text(&output.stdout);
+    let stderr = format_command_output_text(&output.stderr);
+
+    format!(
+        "{}；msiexec 退出码: {}；stdout: {}；stderr: {}",
+        context, exit_code, stdout, stderr
+    )
+}
+
+fn install_windows_msi(msi_path: &Path, context: &str) -> Result<(), String> {
+    let output = std::process::Command::new("msiexec")
+        .args(["/i", &msi_path.to_string_lossy(), "/quiet", "/norestart"])
+        .output()
+        .map_err(|e| format!("{}；拉起 msiexec 失败: {}", context, e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format_windows_msi_failure(&output, context))
+    }
+}
+
 fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let path = Path::new(&config.local_path);
 
@@ -1504,22 +1541,22 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                     )
                 })?;
                 window.emit("env-install-progress", "正在安装 Node.js MSI...").ok();
-                let output = std::process::Command::new("msiexec")
-                    .args(["/i", &msi_path.to_string_lossy(), "/quiet", "/norestart"])
-                    .output()
-                    .map_err(|e| format!("{discovery_summary}；MSI 安装失败: {e}"))?;
+                let install_result = install_windows_msi(
+                    &msi_path,
+                    &format!("{discovery_summary}；内置 Node.js MSI 安装失败，文件: {}", msi_path.display()),
+                );
                 let _ = std::fs::remove_file(&msi_path);
 
-                if output.status.success() {
+                if install_result.is_ok() {
                     #[cfg(target_os = "windows")]
                     refresh_windows_path();
                     window.emit("env-install-progress", "Node.js 安装完成").ok();
                     return Ok("Node.js 安装成功（内置版本）".to_string());
                 }
 
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                let detail = if stderr.is_empty() { "安装器未返回 stderr" } else { &stderr };
-                return Err(format!("{discovery_summary}；MSI 安装失败: {detail}"));
+                return Err(install_result.err().unwrap_or_else(|| {
+                    format!("{discovery_summary}；内置 Node.js MSI 安装失败")
+                }));
             }
 
             bundled_windows_scan_note = Some(discovery_summary);
@@ -1584,6 +1621,22 @@ async fn install_node_env(window: Window) -> Result<String, String> {
             None => base,
         }
     })?;
+    let response = response.error_for_status().map_err(|e| {
+        let status = e
+            .status()
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let base = format!(
+            "下载 Node.js 失败，URL: {}，HTTP 状态: {}，目标文件: {}",
+            node_url,
+            status,
+            download_path.display()
+        );
+        match bundled_windows_scan_note.as_deref() {
+            Some(note) => format!("{}；{}", note, base),
+            None => base,
+        }
+    })?;
     let total_size = response.content_length().unwrap_or(0);
     window.emit("env-install-progress", "正在下载 Node.js (0%)...").ok();
 
@@ -1609,21 +1662,16 @@ async fn install_node_env(window: Window) -> Result<String, String> {
 
     if is_win {
         window.emit("env-install-progress", "正在安装 Node.js...").ok();
-        let output = std::process::Command::new("msiexec")
-            .args(["/i", &download_path.to_string_lossy(), "/quiet", "/norestart"])
-            .output()
-            .map_err(|e| match bundled_windows_scan_note.as_deref() {
-                Some(note) => format!("{}；MSI 安装失败: {}", note, e),
-                None => format!("MSI 安装失败: {}", e),
-            })?;
+        let install_context = format!(
+            "在线 Node.js MSI 安装失败，文件: {}",
+            download_path.display()
+        );
+        let install_result = install_windows_msi(&download_path, &install_context);
         let _ = std::fs::remove_file(download_path);
-        if !output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let error_msg = if stdout.is_empty() { stderr.to_string() } else { stdout.to_string() };
+        if let Err(error) = install_result {
             return Err(match bundled_windows_scan_note.as_deref() {
-                Some(note) => format!("{}；Node.js 安装失败: {}", note, error_msg),
-                None => format!("Node.js 安装失败: {}", error_msg),
+                Some(note) => format!("{}；{}", note, error),
+                None => error,
             });
         }
     } else {
