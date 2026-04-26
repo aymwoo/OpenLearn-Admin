@@ -953,22 +953,31 @@ async fn run_project_task(
 
     // 寻找本地 Node.js 路径
     let mut node_bin_path = None;
-    if tools_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&tools_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with("node-v") {
-                    let p = if cfg!(target_os = "windows") {
-                        entry.path()
-                    } else {
-                        entry.path().join("bin")
-                    };
-                    if p.exists() {
-                        node_bin_path = Some(p);
-                        break;
+    let mut search_dirs = vec![tools_dir.clone()];
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        search_dirs.push(resource_dir.join("nodejs"));
+    }
+    for dir in &search_dirs {
+        if dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if name.starts_with("node-v") {
+                        let p = if cfg!(target_os = "windows") {
+                            entry.path()
+                        } else {
+                            entry.path().join("bin")
+                        };
+                        if p.exists() {
+                            node_bin_path = Some(p);
+                            break;
+                        }
                     }
                 }
             }
+        }
+        if node_bin_path.is_some() {
+            break;
         }
     }
 
@@ -1082,6 +1091,30 @@ async fn set_npm_registry(url: String) -> Result<String, String> {
 #[command]
 async fn install_node_env(window: Window) -> Result<String, String> {
     let is_win = cfg!(target_os = "windows");
+    let app_handle = window.app_handle();
+    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let tools_dir = data_dir.join("tools");
+    std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
+
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        let bundled_nodejs = resource_dir.join("nodejs");
+        if bundled_nodejs.exists() {
+            window.emit("env-install-progress", "正在从内置资源安装 Node.js...").ok();
+            for entry in std::fs::read_dir(&bundled_nodejs).map_err(|e| format!("读取内置资源失败: {}", e))? {
+                let entry = entry.map_err(|e| format!("读取资源条目失败: {}", e))?;
+                let target = tools_dir.join(entry.file_name());
+                let source = entry.path();
+                if source.is_dir() {
+                    copy_dir_recursive(&source, &target)?;
+                } else {
+                    std::fs::copy(&source, &target).map_err(|e| format!("复制资源文件失败: {}", e))?;
+                }
+            }
+            window.emit("env-install-progress", "Node.js 安装完成").ok();
+            return Ok("Node.js 安装成功（内置版本）".to_string());
+        }
+    }
+
     let node_url = if is_win {
         "https://mirrors.huaweicloud.com/nodejs/v20.12.2/node-v20.12.2-win-x64.zip"
     } else {
@@ -1089,11 +1122,6 @@ async fn install_node_env(window: Window) -> Result<String, String> {
     };
 
     window.emit("env-install-progress", "正在下载 Node.js...").ok();
-
-    let app_handle = window.app_handle();
-    let data_dir = app_handle.path().app_local_data_dir().map_err(|e: tauri::Error| e.to_string())?;
-    let tools_dir = data_dir.join("tools");
-    std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
 
     let filename = if is_win { "node.zip" } else { "node.tar.xz" };
     let download_path = tools_dir.join(filename);

@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# tauri bundled resources (populated during full build)
+/src-tauri/resources/nodejs/*
+!/src-tauri/resources/nodejs/.gitkeep
+
 # vercel
 .vercel
 
