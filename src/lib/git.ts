@@ -17,9 +17,9 @@ export interface GitConfig {
 const CONFIG_KEY = 'git-updater-config';
 
 export const DEFAULT_GIT_CONFIG: GitConfig = {
-  remoteUrl: 'https://gitee.com/nylon26/openlearnsite.git',
+  remoteUrl: 'https://gitee.com/aymwoo/next-demo.git',
   localPath: '',
-  branch: 'main',
+  branch: 'master',
   forcePush: false,
   backupBeforePull: true,
   versionFilePath: 'release.log',
