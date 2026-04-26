@@ -1018,47 +1018,6 @@ const applyDashboardData = (data: DashboardData) => {
                   </p>
                 </div>
               </div>
-</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-                        >
-                          {message}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    {message && (
-                      <p>
-                        <span
-                          className={
-                            message.includes("失败") || message.includes("error")
-                              ? "text-[#ff5f56]"
-                              : "text-[#27c93f]"
-                          }
-                        >
-                          [
-                          {message.includes("失败") || message.includes("error")
-                            ? "ERROR"
-                            : "SUCCESS"}
-                          ]
-                        </span>{" "}
-                        {message}
-                      </p>
-                    )}
-
-                  </>
-                )}
-
-                <p className="mt-4 text-white">
-                  user@lumina-os:~$ <span className="animate-pulse">_</span>
-                </p>
-              </div>
             </div>
           </div>
         </div>
