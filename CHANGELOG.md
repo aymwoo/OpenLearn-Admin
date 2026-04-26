@@ -2,6 +2,12 @@
 
 所有对本项目的显著更改都将记录在此文件中。
 
+## [0.2.13] - 2026-04-27
+
+### 变更
+- **移除 assets-windows 目录**：Node.js MSI 现在直接存放在 `src-tauri/resources/nodejs` 作为 bundle 资产，构建时无需复制步骤。
+- **Release workflow 简化**：Windows full 打包前置步骤从"复制 MSI"改为"校验 MSI 存在"，契约从 `assets-windows -> resources/nodejs` 简化为 `resources/nodejs` 直接包含。
+
 ## [0.2.12] - 2026-04-27
 
 ### 修复

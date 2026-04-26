@@ -1010,7 +1010,7 @@ fn discover_windows_bundled_node_msi(resource_dir: &Path) -> Result<BundledNodeM
 
 fn missing_windows_bundled_node_msi_error(discovery: &BundledNodeMsiDiscovery) -> String {
     format!(
-        "Windows full 包内缺少 Node.js MSI；请确认 GitHub Actions 构建阶段已将 src-tauri/assets-windows/*.msi 复制到 src-tauri/resources/{}；{}",
+        "Windows full 包内缺少 Node.js MSI；请确认 src-tauri/resources/{} 目录已包含 *.msi 文件；{}",
         WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR,
         describe_windows_bundled_node_msi_scan(discovery)
     )
@@ -2374,7 +2374,6 @@ mod tests {
         let discovery = discover_windows_bundled_node_msi(&resource_dir).unwrap();
         let message = missing_windows_bundled_node_msi_error(&discovery);
 
-        assert!(message.contains("assets-windows"));
         assert!(message.contains("resources/nodejs"));
         assert!(message.contains("包内缺少 Node.js MSI"));
     }
