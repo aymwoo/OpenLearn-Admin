@@ -834,6 +834,16 @@ fn resolve_windows_node_command_paths() -> Option<WindowsNodeCommandPaths> {
         .find(|paths| paths.node_exe.exists() && paths.npm_cmd.exists())
 }
 
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn windows_node_command_path_labels(node_paths: &WindowsNodeCommandPaths) -> String {
+    format!(
+        "node.exe: {}；npm.cmd: {}；pnpm.cmd: {}",
+        node_paths.node_exe.display(),
+        node_paths.npm_cmd.display(),
+        node_paths.pnpm_cmd.display()
+    )
+}
+
 fn prepend_command_path(extra_dirs: &[PathBuf]) -> Result<std::ffi::OsString, String> {
     let mut joined_paths = extra_dirs.to_vec();
 
@@ -913,8 +923,8 @@ fn ensure_windows_node_ready() -> Result<WindowsNodeCommandPaths, String> {
         Ok(node_paths)
     } else {
         Err(format!(
-            "安装后程序内 npm 不可用；探测可执行路径: {}；stdout: {}；stderr: {}",
-            node_paths.npm_cmd.display(),
+            "安装后程序内 npm 不可用；{}；stdout: {}；stderr: {}",
+            windows_node_command_path_labels(&node_paths),
             format_command_output_text(&output.stdout),
             format_command_output_text(&output.stderr)
         ))
@@ -1033,6 +1043,25 @@ fn install_windows_msi(msi_path: &Path, context: &str) -> Result<(), String> {
     } else {
         Err(format_windows_msi_failure(&output, context))
     }
+}
+
+fn emit_env_install_progress(window: &Window, message: impl Into<String>) {
+    window.emit("env-install-progress", message.into()).ok();
+}
+
+fn ensure_windows_node_ready_with_context(context: &str) -> Result<WindowsNodeCommandPaths, String> {
+    ensure_windows_node_ready().map_err(|error| format!("{}；{}", context, error))
+}
+
+fn install_windows_node_and_verify(
+    window: &Window,
+    msi_path: &Path,
+    install_context: &str,
+    ready_context: &str,
+) -> Result<WindowsNodeCommandPaths, String> {
+    install_windows_msi(msi_path, install_context)?;
+    emit_env_install_progress(window, "正在校验程序内 npm 可用性...");
+    ensure_windows_node_ready_with_context(ready_context)
 }
 
 fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
@@ -1653,11 +1682,11 @@ async fn install_node_env(window: Window) -> Result<String, String> {
 
             if let Some(source) = discovery.selected_msi {
                 let msi_path = tools_dir.join("node.msi");
-                window.emit("env-install-progress", format!("已发现内置 Node.js MSI：{}", source.display())).ok();
-                window.emit(
-                    "env-install-progress",
+                emit_env_install_progress(&window, format!("已发现内置 Node.js MSI：{}", source.display()));
+                emit_env_install_progress(
+                    &window,
                     format!("正在复制 resources/{} 内置 MSI...", WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR),
-                ).ok();
+                );
                 std::fs::copy(&source, &msi_path).map_err(|e| {
                     format!(
                         "复制内置 Node.js MSI 失败 {} -> {}: {e}",
@@ -1665,25 +1694,20 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                         msi_path.display()
                     )
                 })?;
-                window.emit("env-install-progress", "正在安装内置 Node.js MSI...").ok();
-                let install_result = install_windows_msi(
+                emit_env_install_progress(&window, "正在安装内置 Node.js MSI...");
+                let ready_result = install_windows_node_and_verify(
+                    &window,
                     &msi_path,
                     &format!("{discovery_summary}；内置 Node.js MSI 安装失败，文件: {}", msi_path.display()),
+                    &discovery_summary,
                 );
                 let _ = std::fs::remove_file(&msi_path);
 
-                if let Err(error) = install_result {
-                    return Err(error);
-                }
-
-                window.emit("env-install-progress", "正在校验程序内 npm 可用性...").ok();
-                let ready_paths = ensure_windows_node_ready().map_err(|error| {
-                    format!("{discovery_summary}；{}", error)
-                })?;
-                window.emit(
-                    "env-install-progress",
+                let ready_paths = ready_result?;
+                emit_env_install_progress(
+                    &window,
                     format!("Node.js 安装完成，npm 已就绪：{}", ready_paths.npm_cmd.display()),
-                ).ok();
+                );
                 return Ok(format!(
                     "Node.js 安装成功（内置版本），程序内 npm 已就绪：{}",
                     ready_paths.npm_cmd.display()
@@ -1697,14 +1721,14 @@ async fn install_node_env(window: Window) -> Result<String, String> {
     if let Ok(resource_dir) = app_handle.path().resource_dir() {
         let bundled_nodejs = resource_dir.join("nodejs");
         if !is_win && bundled_nodejs.exists() {
-            window.emit("env-install-progress", "正在从内置资源安装 Node.js...").ok();
+            emit_env_install_progress(&window, "正在从内置资源安装 Node.js...");
             for entry in std::fs::read_dir(&bundled_nodejs).map_err(|e| format!("读取内置资源失败: {}", e))? {
                 let entry = entry.map_err(|e| format!("读取资源条目失败: {}", e))?;
                 let source = entry.path();
                 if source.extension().map_or(false, |ext| ext == "msi") {
                     let msi_path = tools_dir.join("node.msi");
                     std::fs::copy(&source, &msi_path).map_err(|e| format!("复制 MSI 文件失败: {}", e))?;
-                    window.emit("env-install-progress", "正在安装 Node.js MSI...").ok();
+                    emit_env_install_progress(&window, "正在安装 Node.js MSI...");
                     let output = std::process::Command::new("msiexec")
                         .args(["/i", &msi_path.to_string_lossy(), "/quiet", "/norestart"])
                         .output()
@@ -1715,7 +1739,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                             #[cfg(target_os = "windows")]
                             refresh_windows_path();
                         }
-                        window.emit("env-install-progress", "Node.js 安装完成").ok();
+                        emit_env_install_progress(&window, "Node.js 安装完成");
                         return Ok("Node.js 安装成功（内置版本）".to_string());
                     } else {
                         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1730,7 +1754,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                     }
                 }
             }
-            window.emit("env-install-progress", "Node.js 安装完成").ok();
+            emit_env_install_progress(&window, "Node.js 安装完成");
             return Ok("Node.js 安装成功（内置版本）".to_string());
         }
     }
@@ -1769,7 +1793,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         }
     })?;
     let total_size = response.content_length().unwrap_or(0);
-    window.emit("env-install-progress", "正在下载 Node.js (0%)...").ok();
+    emit_env_install_progress(&window, "正在下载 Node.js (0%)...");
 
     let mut file = std::fs::File::create(&download_path).map_err(|e| format!("创建文件失败: {}", e))?;
     let mut downloaded: u64 = 0;
@@ -1785,42 +1809,39 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         if total_size > 0 {
             let percent = ((downloaded as f64 / total_size as f64) * 100.0) as u32;
             if percent != last_percent && percent % 10 == 0 {
-                window.emit("env-install-progress", format!("正在下载 Node.js ({}%)...", percent)).ok();
+                emit_env_install_progress(&window, format!("正在下载 Node.js ({}%)...", percent));
                 last_percent = percent;
             }
         }
     }
 
     if is_win {
-        window.emit("env-install-progress", "正在安装 Node.js...").ok();
-        let install_context = format!(
-            "在线 Node.js MSI 安装失败，文件: {}",
-            download_path.display()
+        emit_env_install_progress(&window, "正在安装 Node.js...");
+        let ready_result = install_windows_node_and_verify(
+            &window,
+            &download_path,
+            &format!(
+                "在线 Node.js MSI 安装失败，文件: {}",
+                download_path.display()
+            ),
+            "在线 Node.js MSI 已完成安装，但程序内 npm readiness 校验失败",
         );
-        let install_result = install_windows_msi(&download_path, &install_context);
         let _ = std::fs::remove_file(download_path);
-        if let Err(error) = install_result {
-            return Err(match bundled_windows_scan_note.as_deref() {
-                Some(note) => format!("{}；{}", note, error),
-                None => error,
-            });
-        }
 
-        window.emit("env-install-progress", "正在校验程序内 npm 可用性...").ok();
-        let ready_paths = ensure_windows_node_ready().map_err(|error| match bundled_windows_scan_note.as_deref() {
+        let ready_paths = ready_result.map_err(|error| match bundled_windows_scan_note.as_deref() {
             Some(note) => format!("{}；{}", note, error),
             None => error,
         })?;
-        window.emit(
-            "env-install-progress",
+        emit_env_install_progress(
+            &window,
             format!("Node.js 安装完成，npm 已就绪：{}", ready_paths.npm_cmd.display()),
-        ).ok();
+        );
         return Ok(format!(
             "Node.js 安装成功，程序内 npm 已就绪：{}",
             ready_paths.npm_cmd.display()
         ));
     } else {
-        window.emit("env-install-progress", "正在解压 Node.js...").ok();
+        emit_env_install_progress(&window, "正在解压 Node.js...");
         std::process::Command::new("tar")
             .args([
                 "-xJf",
@@ -1833,7 +1854,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         let _ = std::fs::remove_file(download_path);
     }
 
-    window.emit("env-install-progress", "Node.js 安装完成").ok();
+    emit_env_install_progress(&window, "Node.js 安装完成");
     Ok("Node.js 安装成功".to_string())
 }
 
