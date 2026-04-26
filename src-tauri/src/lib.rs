@@ -1442,6 +1442,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                     let _ = std::fs::remove_file(msi_path);
                     if output.status.success() {
                         if is_win {
+                            #[cfg(target_os = "windows")]
                             refresh_windows_path();
                         }
                         window.emit("env-install-progress", "Node.js 安装完成").ok();
@@ -1523,6 +1524,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         let _ = std::fs::remove_file(download_path);
     }
 
+    #[cfg(target_os = "windows")]
     if is_win {
         refresh_windows_path();
     }
