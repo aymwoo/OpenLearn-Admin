@@ -29,9 +29,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "assets-windows/node-v24.15.0-x64.msi"
-    ],
     "linux": {
       "deb": {
         "depends": []
