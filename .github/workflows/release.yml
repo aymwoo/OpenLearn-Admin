@@ -24,9 +24,9 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  WINDOWS_FULL_NODE_MSI_NAME: node-v24.15.0-x64.msi
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      WINDOWS_FULL_NODE_MSI_NAME: node-v24.15.0-x64.msi
 
     steps:
       - name: Checkout repository
