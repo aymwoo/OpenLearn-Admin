@@ -1733,33 +1733,11 @@ async fn install_node_env(window: Window) -> Result<String, String> {
             for entry in std::fs::read_dir(&bundled_nodejs).map_err(|e| format!("读取内置资源失败: {}", e))? {
                 let entry = entry.map_err(|e| format!("读取资源条目失败: {}", e))?;
                 let source = entry.path();
-                if source.extension().map_or(false, |ext| ext == "msi") {
-                    let msi_path = tools_dir.join("node.msi");
-                    std::fs::copy(&source, &msi_path).map_err(|e| format!("复制 MSI 文件失败: {}", e))?;
-                    emit_env_install_progress(&window, "正在安装 Node.js MSI...");
-                    let output = std::process::Command::new("msiexec")
-                        .args(["/i", &msi_path.to_string_lossy(), "/quiet", "/norestart"])
-                        .output()
-                        .map_err(|e| format!("MSI 安装失败: {}", e))?;
-                    let _ = std::fs::remove_file(msi_path);
-                    if output.status.success() {
-                        if is_win {
-                            #[cfg(target_os = "windows")]
-                            refresh_windows_path();
-                        }
-                        emit_env_install_progress(&window, "Node.js 安装完成");
-                        return Ok("Node.js 安装成功（内置版本）".to_string());
-                    } else {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        return Err(format!("MSI 安装失败: {}", stderr));
-                    }
+                if source.is_dir() {
+                    copy_dir_recursive(&source, &tools_dir.join(entry.file_name()))?;
                 } else {
-                    let target = tools_dir.join(entry.file_name());
-                    if source.is_dir() {
-                        copy_dir_recursive(&source, &target)?;
-                    } else {
-                        std::fs::copy(&source, &target).map_err(|e| format!("复制资源文件失败: {}", e))?;
-                    }
+                    std::fs::copy(&source, &tools_dir.join(entry.file_name()))
+                        .map_err(|e| format!("复制资源文件失败: {}", e))?;
                 }
             }
             emit_env_install_progress(&window, "Node.js 安装完成");
