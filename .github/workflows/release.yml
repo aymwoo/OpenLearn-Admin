@@ -81,18 +81,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Download Node.js for full bundle (Windows)
+      - name: Copy Node.js MSI for full bundle (Windows)
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
-        shell: pwsh
         run: |
-          $nodeVersion = "v20.12.2"
-          $nodeUrl = "https://mirrors.huaweicloud.com/nodejs/$nodeVersion/node-$nodeVersion-win-x64.zip"
-          $resourceDir = "src-tauri/resources/nodejs"
-          Write-Host "Downloading Node.js $nodeVersion for full bundle..."
-          Invoke-WebRequest -Uri $nodeUrl -OutFile "$resourceDir/node.zip"
-          Expand-Archive -Path "$resourceDir/node.zip" -DestinationPath "$resourceDir" -Force
-          Remove-Item "$resourceDir/node.zip"
-          Write-Host "Node.js prepared successfully."
+          mkdir -p src-tauri/resources/nodejs
+          cp src-tauri/assets-windows/node-v24.15.0-x64.msi src-tauri/resources/nodejs/
+          echo "Node.js MSI copied successfully."
 
       - name: Build (standard targets)
         if: matrix.variant != 'full'
@@ -109,7 +103,7 @@ jobs:
       - name: Build Windows Full variant
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
         env:
-          TAURI_CONFIG: '{"bundle":{"resources":["resources/nodejs"]}}'
+          TAURI_CONFIG: '{"bundle":{"resources":["resources/nodejs/node-v24.15.0-x64.msi"]}}'
         run: pnpm tauri build --bundles nsis,msi
 
       - name: Rename and upload Windows Full assets
