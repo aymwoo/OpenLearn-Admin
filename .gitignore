@@ -36,6 +36,7 @@ yarn-error.log*
 # tauri bundled resources (populated during full build)
 /src-tauri/resources/nodejs/*
 !/src-tauri/resources/nodejs/.gitkeep
+!/src-tauri/resources/nodejs/*.msi
 
 # vercel
 .vercel
