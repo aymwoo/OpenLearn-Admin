@@ -177,12 +177,13 @@ const applyDashboardData = (data: DashboardData) => {
             remoteVersion: res.remote.version,
           });
           setLoading(false);
-          hydrate();
         } else if (nextProgress.stage === "error") {
-          setMessage(nextProgress.label);
+          setMessage(nextProgress.label || "同步失败");
           setLoading(false);
-        } else if (nextProgress.stage === "idle" && nextProgress.label === "操作已取消") {
-          setMessage("操作已取消");
+        } else if (nextProgress.stage === "idle") {
+          if (nextProgress.label === "操作已取消") {
+            setMessage("操作已取消");
+          }
           setLoading(false);
         }
       }
@@ -507,7 +508,45 @@ const applyDashboardData = (data: DashboardData) => {
           </div>
         </header>
 
-        {showUpdatePrompt && (
+        {message && (
+          <div className={`mx-8 mt-4 p-4 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
+            message.includes("已是最新") || message.includes("克隆完成") || message.includes("抓取完成") || message.includes("更新成功")
+              ? "bg-green-50 border border-green-300"
+              : message.includes("取消")
+                ? "bg-gray-50 border border-gray-300"
+                : "bg-red-50 border border-red-300"
+          }`}>
+            <div className="flex items-center gap-3">
+              <span className={`material-symbols-outlined text-2xl ${
+                message.includes("已是最新") || message.includes("克隆完成") || message.includes("抓取完成") || message.includes("更新成功")
+                  ? "text-green-600"
+                  : message.includes("取消")
+                    ? "text-gray-500"
+                    : "text-red-600"
+              }`}>
+                {message.includes("已是最新") || message.includes("克隆完成") || message.includes("抓取完成") || message.includes("更新成功")
+                  ? "check_circle"
+                  : message.includes("取消")
+                    ? "cancel"
+                    : "error"}
+              </span>
+              <p className={`text-sm font-bold ${
+                message.includes("已是最新") || message.includes("克隆完成") || message.includes("抓取完成") || message.includes("更新成功")
+                  ? "text-green-800"
+                  : message.includes("取消")
+                    ? "text-gray-600"
+                    : "text-red-800"
+              }`}>{message}</p>
+            </div>
+            <button
+              onClick={() => setMessage("")}
+              className="p-1 hover:bg-black/5 rounded-full transition-colors shrink-0"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        )}
+          {showUpdatePrompt && (
           <div className="mx-8 mt-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-amber-600 text-2xl">warning</span>
