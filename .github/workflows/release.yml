@@ -24,8 +24,9 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  WINDOWS_FULL_NODE_MSI_NAME: node-v24.15.0-x64.msi
 
     steps:
       - name: Checkout repository
@@ -84,9 +85,16 @@ jobs:
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
         shell: bash
         run: |
-          mkdir -p src-tauri/resources/nodejs || true
-          cp src-tauri/assets-windows/node-v24.15.0-x64.msi src-tauri/resources/nodejs/
-          echo "Node.js MSI copied successfully."
+          MSI_SOURCE="src-tauri/assets-windows/${WINDOWS_FULL_NODE_MSI_NAME}"
+          MSI_TARGET_DIR="src-tauri/resources/nodejs"
+          if [ ! -f "$MSI_SOURCE" ]; then
+            echo "Missing Windows full Node.js MSI: $MSI_SOURCE"
+            exit 1
+          fi
+          mkdir -p "$MSI_TARGET_DIR"
+          rm -f "$MSI_TARGET_DIR"/*.msi
+          cp "$MSI_SOURCE" "$MSI_TARGET_DIR/"
+          echo "Node.js MSI copied successfully: $MSI_TARGET_DIR/${WINDOWS_FULL_NODE_MSI_NAME}"
 
       - name: Build (standard targets)
         if: matrix.variant != 'full'
@@ -103,7 +111,7 @@ jobs:
       - name: Build Windows Full variant
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
         env:
-          TAURI_CONFIG: '{"bundle":{"resources":["resources/nodejs/node-v24.15.0-x64.msi"]}}'
+          TAURI_CONFIG: '{"bundle":{"resources":["resources/nodejs"]}}'
         run: pnpm tauri build --bundles nsis,msi
 
       - name: Rename and upload Windows Full assets
