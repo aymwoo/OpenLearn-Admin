@@ -1,4 +1,4 @@
-use std::{fs, path::Path, thread};
+use std::{fs, path::{Path, PathBuf}, thread};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
@@ -787,6 +787,68 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+struct BundledNodeMsiDiscovery {
+    selected_msi: Option<PathBuf>,
+    scanned_dirs: Vec<PathBuf>,
+}
+
+fn windows_bundled_node_msi_scan_dirs(resource_dir: &Path) -> Vec<PathBuf> {
+    vec![
+        resource_dir.join("nodejs"),
+        resource_dir.join("resources").join("nodejs"),
+        resource_dir.to_path_buf(),
+    ]
+}
+
+fn describe_windows_bundled_node_msi_scan(discovery: &BundledNodeMsiDiscovery) -> String {
+    let scanned_dirs = discovery
+        .scanned_dirs
+        .iter()
+        .map(|dir| format!("{}\\*.msi", dir.display()))
+        .collect::<Vec<_>>()
+        .join("；");
+
+    if let Some(msi) = &discovery.selected_msi {
+        format!("命中内置 MSI: {}；已扫描: {}", msi.display(), scanned_dirs)
+    } else {
+        format!("未在内置资源中找到 Node.js MSI；已扫描: {}", scanned_dirs)
+    }
+}
+
+fn discover_windows_bundled_node_msi(resource_dir: &Path) -> Result<BundledNodeMsiDiscovery, String> {
+    let scanned_dirs = windows_bundled_node_msi_scan_dirs(resource_dir);
+    let mut matches = Vec::new();
+
+    for dir in &scanned_dirs {
+        if !dir.exists() || !dir.is_dir() {
+            continue;
+        }
+
+        for entry in fs::read_dir(dir)
+            .map_err(|e| format!("读取内置 Node.js 资源目录失败 {}: {e}", dir.display()))?
+        {
+            let entry = entry.map_err(|e| format!("读取资源条目失败 {}: {e}", dir.display()))?;
+            let path = entry.path();
+            if path.is_file()
+                && path
+                    .extension()
+                    .map(|ext| ext.to_string_lossy().eq_ignore_ascii_case("msi"))
+                    .unwrap_or(false)
+            {
+                matches.push(path);
+            }
+        }
+    }
+
+    matches.sort();
+
+    Ok(BundledNodeMsiDiscovery {
+        selected_msi: matches.into_iter().next(),
+        scanned_dirs,
+    })
+}
+
 fn collect_dashboard_data(config: &GitConfig) -> Result<DashboardData, String> {
     let path = Path::new(&config.local_path);
 
@@ -1424,9 +1486,49 @@ async fn install_node_env(window: Window) -> Result<String, String> {
     let tools_dir = data_dir.join("tools");
     std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
 
+    let mut bundled_windows_scan_note = None;
+
+    if is_win {
+        if let Ok(resource_dir) = app_handle.path().resource_dir() {
+            let discovery = discover_windows_bundled_node_msi(&resource_dir)?;
+            let discovery_summary = describe_windows_bundled_node_msi_scan(&discovery);
+
+            if let Some(source) = discovery.selected_msi {
+                let msi_path = tools_dir.join("node.msi");
+                window.emit("env-install-progress", "正在从内置资源安装 Node.js...").ok();
+                std::fs::copy(&source, &msi_path).map_err(|e| {
+                    format!(
+                        "复制内置 Node.js MSI 失败 {} -> {}: {e}",
+                        source.display(),
+                        msi_path.display()
+                    )
+                })?;
+                window.emit("env-install-progress", "正在安装 Node.js MSI...").ok();
+                let output = std::process::Command::new("msiexec")
+                    .args(["/i", &msi_path.to_string_lossy(), "/quiet", "/norestart"])
+                    .output()
+                    .map_err(|e| format!("{discovery_summary}；MSI 安装失败: {e}"))?;
+                let _ = std::fs::remove_file(&msi_path);
+
+                if output.status.success() {
+                    #[cfg(target_os = "windows")]
+                    refresh_windows_path();
+                    window.emit("env-install-progress", "Node.js 安装完成").ok();
+                    return Ok("Node.js 安装成功（内置版本）".to_string());
+                }
+
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                let detail = if stderr.is_empty() { "安装器未返回 stderr" } else { &stderr };
+                return Err(format!("{discovery_summary}；MSI 安装失败: {detail}"));
+            }
+
+            bundled_windows_scan_note = Some(discovery_summary);
+        }
+    }
+
     if let Ok(resource_dir) = app_handle.path().resource_dir() {
         let bundled_nodejs = resource_dir.join("nodejs");
-        if bundled_nodejs.exists() {
+        if !is_win && bundled_nodejs.exists() {
             window.emit("env-install-progress", "正在从内置资源安装 Node.js...").ok();
             for entry in std::fs::read_dir(&bundled_nodejs).map_err(|e| format!("读取内置资源失败: {}", e))? {
                 let entry = entry.map_err(|e| format!("读取资源条目失败: {}", e))?;
@@ -1475,7 +1577,13 @@ async fn install_node_env(window: Window) -> Result<String, String> {
     let download_path = tools_dir.join(filename);
 
     let client = reqwest::Client::new();
-    let response = client.get(node_url).send().await.map_err(|e| format!("下载失败: {}", e))?;
+    let response = client.get(node_url).send().await.map_err(|e| {
+        let base = format!("下载失败: {}", e);
+        match bundled_windows_scan_note.as_deref() {
+            Some(note) => format!("{}；{}", note, base),
+            None => base,
+        }
+    })?;
     let total_size = response.content_length().unwrap_or(0);
     window.emit("env-install-progress", "正在下载 Node.js (0%)...").ok();
 
@@ -1504,13 +1612,19 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         let output = std::process::Command::new("msiexec")
             .args(["/i", &download_path.to_string_lossy(), "/quiet", "/norestart"])
             .output()
-            .map_err(|e| format!("MSI 安装失败: {}", e))?;
+            .map_err(|e| match bundled_windows_scan_note.as_deref() {
+                Some(note) => format!("{}；MSI 安装失败: {}", note, e),
+                None => format!("MSI 安装失败: {}", e),
+            })?;
         let _ = std::fs::remove_file(download_path);
         if !output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
             let error_msg = if stdout.is_empty() { stderr.to_string() } else { stdout.to_string() };
-            return Err(format!("Node.js 安装失败: {}", error_msg));
+            return Err(match bundled_windows_scan_note.as_deref() {
+                Some(note) => format!("{}；Node.js 安装失败: {}", note, error_msg),
+                None => format!("Node.js 安装失败: {}", error_msg),
+            });
         }
     } else {
         window.emit("env-install-progress", "正在解压 Node.js...").ok();
