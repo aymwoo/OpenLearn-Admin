@@ -100,15 +100,15 @@ jobs:
 
       - name: Build (standard targets)
         if: matrix.variant != 'full'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm tauri build --bundles nsis
+
+      - name: Upload Linux artifacts
+        if: matrix.platform == 'ubuntu-24.04'
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ steps.tag.outputs.value }}
-          releaseName: "OpenLearn Manager ${{ steps.tag.outputs.value }}"
-          releaseBody: "See the assets below."
-          releaseDraft: false
-          prerelease: false
+          name: linux-bundle
+          path: src-tauri/target/release/bundle/nsis/
+          retention-days: 1
 
       - name: Build Windows Full variant
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
@@ -119,8 +119,6 @@ jobs:
       - name: Rename and upload Windows Full assets
         if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd src-tauri/target/release/bundle
 
@@ -140,16 +138,45 @@ jobs:
             fi
           done
 
-          gh release create "${{ steps.tag.outputs.value }}" \
-            --title "OpenLearn Manager ${{ steps.tag.outputs.value }}" \
-            --notes "See the assets below." || true
+      - name: Upload Windows Full artifacts
+        if: matrix.platform == 'windows-latest' && matrix.variant == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-full-bundle
+          path: src-tauri/target/release/bundle/
+          retention-days: 1
 
-          for dir in msi nsis; do
+  release:
+    name: create-release
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG_NAME" \
+            --title "OpenLearn Manager $TAG_NAME" \
+            --notes "See the assets below."
+
+          for dir in artifacts/*; do
             if [ -d "$dir" ]; then
               for f in "$dir"/*; do
                 if [ -f "$f" ]; then
                   echo "Uploading: $f"
-                  gh release upload "${{ steps.tag.outputs.value }}" "$f" --clobber
+                  gh release upload "$TAG_NAME" "$f" --clobber
                 fi
               done
             fi
