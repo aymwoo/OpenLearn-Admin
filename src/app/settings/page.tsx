@@ -183,8 +183,11 @@ export default function Settings() {
           <span className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.forcePush}
+            aria-label="强制用远端覆盖本地冲突"
             onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-            className={`w-12 h-6 rounded-full transition-colors ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-12 h-6 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-[#4d59a3] ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
             <span className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.forcePush ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
@@ -194,8 +197,11 @@ export default function Settings() {
           <span className="text-base text-[#566167]">拉取前备份</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.backupBeforePull}
+            aria-label="拉取前备份"
             onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-            className={`w-14 h-7 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-14 h-7 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-[#4d59a3] ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
             <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
@@ -208,8 +214,11 @@ export default function Settings() {
           </div>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.autoRestoreWebConfig}
+            aria-label="自动恢复 web.config"
             onClick={() => setConfig({ ...config, autoRestoreWebConfig: !config.autoRestoreWebConfig })}
-            className={`w-14 h-7 rounded-full transition-colors ${config.autoRestoreWebConfig ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-14 h-7 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-[#4d59a3] ${config.autoRestoreWebConfig ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
             <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.autoRestoreWebConfig ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
