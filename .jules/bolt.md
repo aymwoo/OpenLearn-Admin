@@ -1,0 +1,3 @@
+## 2026-04-27 - Backend Polling Performance Optimization
+**Learning:** During periodic system polling via the `sysinfo` crate in `get_system_info`, using `sys.refresh_all()` and instantiating `Disks::new_with_refreshed_list()` each time creates substantial unnecessary CPU and memory overhead, as it refreshes extraneous system components like processes and creates entirely new structures.
+**Action:** Always selectively update required statistics (e.g., `sys.refresh_cpu_usage()`, `sys.refresh_memory()`) and cache heavier components like `Disks` within the application state, updating them in-place with `disks.refresh(true)` on each poll request.
