@@ -352,6 +352,9 @@ fn resolve_remote_credentials(
                 .map_err(|_| https_auth_error(url));
         }
 
+        // 公开仓库无需认证：Cred::default() 表示匿名访问
+        // 如果这里返回 Err，会导致 Gitee 等平台的公开 HTTPS 仓库克隆失败
+        // 只有当服务器拒绝匿名访问时，libgit2 才会继续请求 USER_PASS_PLAINTEXT
         if allowed.contains(git2::CredentialType::DEFAULT) {
             return Cred::default();
         }
