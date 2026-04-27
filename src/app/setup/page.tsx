@@ -364,8 +364,11 @@ export default function SetupWizard() {
             <span className="text-sm text-gray-600">强制覆盖本地冲突</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.forcePush}
+              aria-label="强制覆盖本地冲突"
               onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-[#4d59a3] ${
                 config.forcePush ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
@@ -383,8 +386,11 @@ export default function SetupWizard() {
             <span className="text-sm text-gray-600">拉取前备份</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.backupBeforePull}
+              aria-label="拉取前备份"
               onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-[#4d59a3] ${
                 config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
