@@ -180,11 +180,9 @@ jobs:
 
           for dir in artifacts/*; do
             if [ -d "$dir" ]; then
-              for f in "$dir"/*; do
-                if [ -f "$f" ]; then
-                  echo "Uploading: $f"
-                  gh release upload "$TAG_NAME" "$f" --clobber
-                fi
+              find "$dir" -type f | while read -r f; do
+                echo "Uploading: $f"
+                gh release upload "$TAG_NAME" "$f" --clobber
               done
             fi
           done
