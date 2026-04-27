@@ -176,7 +176,7 @@ jobs:
           TAG_NAME="${GITHUB_REF#refs/tags/}"
           gh release create "$TAG_NAME" \
             --title "OpenLearn Manager $TAG_NAME" \
-            --notes "See the assets below."
+            --notes "See the assets below." || true
 
           for dir in artifacts/*; do
             if [ -d "$dir" ]; then
