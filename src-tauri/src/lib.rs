@@ -353,7 +353,7 @@ fn resolve_remote_credentials(
         }
 
         if allowed.contains(git2::CredentialType::DEFAULT) {
-            return Err(https_auth_error(url));
+            return Cred::default();
         }
     }
 
