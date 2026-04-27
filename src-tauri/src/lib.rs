@@ -1008,14 +1008,6 @@ fn discover_windows_bundled_node_msi(resource_dir: &Path) -> Result<BundledNodeM
     })
 }
 
-fn missing_windows_bundled_node_msi_error(discovery: &BundledNodeMsiDiscovery) -> String {
-    format!(
-        "Windows full 包内缺少 Node.js MSI；请确认 src-tauri/resources/{} 目录已包含 *.msi 文件；{}",
-        WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR,
-        describe_windows_bundled_node_msi_scan(discovery)
-    )
-}
-
 fn format_command_output_text(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes).trim().to_string();
     if text.is_empty() {
@@ -1681,8 +1673,6 @@ async fn install_node_env(window: Window) -> Result<String, String> {
     let tools_dir = data_dir.join("tools");
     std::fs::create_dir_all(&tools_dir).map_err(|e| format!("无法创建工具目录: {}", e))?;
 
-    let mut bundled_windows_scan_note = None;
-
     if is_win {
         if let Ok(resource_dir) = app_handle.path().resource_dir() {
             let discovery = discover_windows_bundled_node_msi(&resource_dir)?;
@@ -1722,7 +1712,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
                 ));
             }
 
-            bundled_windows_scan_note = Some(missing_windows_bundled_node_msi_error(&discovery));
+            // 未找到内置 MSI，回退到在线下载
         }
     }
 
@@ -1756,27 +1746,19 @@ async fn install_node_env(window: Window) -> Result<String, String> {
 
     let client = reqwest::Client::new();
     let response = client.get(node_url).send().await.map_err(|e| {
-        let base = format!("下载失败: {}", e);
-        match bundled_windows_scan_note.as_deref() {
-            Some(note) => format!("{}；{}", note, base),
-            None => base,
-        }
+        format!("下载失败: {}", e)
     })?;
     let response = response.error_for_status().map_err(|e| {
         let status = e
             .status()
             .map(|code| code.to_string())
             .unwrap_or_else(|| "unknown".to_string());
-        let base = format!(
+        format!(
             "下载 Node.js 失败，URL: {}，HTTP 状态: {}，目标文件: {}",
             node_url,
             status,
             download_path.display()
-        );
-        match bundled_windows_scan_note.as_deref() {
-            Some(note) => format!("{}；{}", note, base),
-            None => base,
-        }
+        )
     })?;
     let total_size = response.content_length().unwrap_or(0);
     emit_env_install_progress(&window, "正在下载 Node.js (0%)...");
@@ -1814,10 +1796,7 @@ async fn install_node_env(window: Window) -> Result<String, String> {
         );
         let _ = std::fs::remove_file(download_path);
 
-        let ready_paths = ready_result.map_err(|error| match bundled_windows_scan_note.as_deref() {
-            Some(note) => format!("{}；{}", note, error),
-            None => error,
-        })?;
+        let ready_paths = ready_result?;
         emit_env_install_progress(
             &window,
             format!("Node.js 安装完成，npm 已就绪：{}", ready_paths.npm_cmd.display()),
@@ -2160,7 +2139,7 @@ mod tests {
     use super::{
         build_pull_result, build_repo_status, build_windows_node_command_paths, default_branch,
         discover_windows_bundled_node_msi, extract_version, find_changelog_section,
-        https_auth_guidance, is_ssh_remote, missing_windows_bundled_node_msi_error,
+        https_auth_guidance, is_ssh_remote,
         normalize_git_operation_error, windows_bundled_node_msi_scan_dirs,
         windows_node_command_path_labels, versions_differ, VersionDetails,
         WINDOWS_BUNDLED_NODE_RESOURCE_SUBDIR,
@@ -2344,16 +2323,6 @@ mod tests {
         assert!(labels.contains("node.exe"));
         assert!(labels.contains("npm.cmd"));
         assert!(labels.contains("pnpm.cmd"));
-    }
-
-    #[test]
-    fn missing_windows_bundled_msi_error_mentions_bundle_contract() {
-        let resource_dir = PathBuf::from(r"C:\\OpenLearn\\resources");
-        let discovery = discover_windows_bundled_node_msi(&resource_dir).unwrap();
-        let message = missing_windows_bundled_node_msi_error(&discovery);
-
-        assert!(message.contains("resources/nodejs"));
-        assert!(message.contains("包内缺少 Node.js MSI"));
     }
 }
 
