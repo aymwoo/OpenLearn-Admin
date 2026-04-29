@@ -361,11 +361,14 @@ export default function SetupWizard() {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">强制覆盖本地冲突</span>
+            <span id="setupForcePushLabel" className="text-sm text-gray-600">强制覆盖本地冲突</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.forcePush}
+              aria-labelledby="setupForcePushLabel"
               onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:outline-none ${
                 config.forcePush ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
@@ -380,11 +383,14 @@ export default function SetupWizard() {
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">拉取前备份</span>
+            <span id="setupBackupBeforePullLabel" className="text-sm text-gray-600">拉取前备份</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.backupBeforePull}
+              aria-labelledby="setupBackupBeforePullLabel"
               onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[#4d59a3] focus-visible:outline-none ${
                 config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
