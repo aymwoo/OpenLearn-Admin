@@ -1,0 +1,3 @@
+## 2024-05-18 - AppState Disks Caching and sysinfo Polling Optimization
+**Learning:** The `sysinfo` crate was originally using `sys.refresh_all()` for system polling in `get_system_info`, which refreshes all system parameters and is inefficient. Additionally, `sysinfo::Disks` was instantiated repeatedly with `Disks::new_with_refreshed_list()`.
+**Action:** Replaced `sys.refresh_all()` with specific refresh calls (`sys.refresh_cpu_usage()` and `sys.refresh_memory()`). Cached `Disks` within `AppState` and updated the cached instance via `disks.refresh(true)` in `get_system_info` rather than instantiating it per cycle.
