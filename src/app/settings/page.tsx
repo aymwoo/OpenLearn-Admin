@@ -180,38 +180,47 @@ export default function Settings() {
         </div>
 
         <div className="mb-6 flex items-center justify-between">
-          <span className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
+          <span id="force-push-label" className="text-base text-[#566167]">强制用远端覆盖本地冲突</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.forcePush}
+            aria-labelledby="force-push-label"
             onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-            className={`w-12 h-6 rounded-full transition-colors ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-12 h-6 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-offset-2 ${config.forcePush ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
-            <span className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.forcePush ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            <span aria-hidden="true" className={`block w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${config.forcePush ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
         <div className="mb-6 flex items-center justify-between">
-          <span className="text-base text-[#566167]">拉取前备份</span>
+          <span id="backup-pull-label" className="text-base text-[#566167]">拉取前备份</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.backupBeforePull}
+            aria-labelledby="backup-pull-label"
             onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-            className={`w-14 h-7 rounded-full transition-colors ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-14 h-7 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-offset-2 ${config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
-            <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-7' : 'translate-x-0.5'}`} />
+            <span aria-hidden="true" className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.backupBeforePull ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
         <div className="mb-8 flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-base text-[#566167]">自动恢复 web.config</span>
+            <span id="auto-restore-label" className="text-base text-[#566167]">自动恢复 web.config</span>
             <span className="text-xs text-[#888] mt-1">更新后自动恢复本地的 web.config 文件</span>
           </div>
           <button
             type="button"
+            role="switch"
+            aria-checked={config.autoRestoreWebConfig}
+            aria-labelledby="auto-restore-label"
             onClick={() => setConfig({ ...config, autoRestoreWebConfig: !config.autoRestoreWebConfig })}
-            className={`w-14 h-7 rounded-full transition-colors ${config.autoRestoreWebConfig ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
+            className={`w-14 h-7 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-offset-2 ${config.autoRestoreWebConfig ? 'bg-[#4d59a3]' : 'bg-[#e7eff5]'}`}
           >
-            <span className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.autoRestoreWebConfig ? 'translate-x-7' : 'translate-x-0.5'}`} />
+            <span aria-hidden="true" className={`block w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${config.autoRestoreWebConfig ? 'translate-x-7' : 'translate-x-0.5'}`} />
           </button>
         </div>
 
