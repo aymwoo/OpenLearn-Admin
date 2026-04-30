@@ -361,15 +361,19 @@ export default function SetupWizard() {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">强制覆盖本地冲突</span>
+            <span id="setup-force-push-label" className="text-sm text-gray-600">强制覆盖本地冲突</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.forcePush}
+              aria-labelledby="setup-force-push-label"
               onClick={() => setConfig({ ...config, forcePush: !config.forcePush })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-offset-2 ${
                 config.forcePush ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
               <span
+                aria-hidden="true"
                 className={`block w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${
                   config.forcePush ? 'translate-x-5' : 'translate-x-0.5'
                 }`}
@@ -380,15 +384,19 @@ export default function SetupWizard() {
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">拉取前备份</span>
+            <span id="setup-backup-pull-label" className="text-sm text-gray-600">拉取前备份</span>
             <button
               type="button"
+              role="switch"
+              aria-checked={config.backupBeforePull}
+              aria-labelledby="setup-backup-pull-label"
               onClick={() => setConfig({ ...config, backupBeforePull: !config.backupBeforePull })}
-              className={`w-10 h-5 rounded-full transition-colors ${
+              className={`w-10 h-5 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-offset-2 ${
                 config.backupBeforePull ? 'bg-[#4d59a3]' : 'bg-gray-300'
               }`}
             >
               <span
+                aria-hidden="true"
                 className={`block w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${
                   config.backupBeforePull ? 'translate-x-5' : 'translate-x-0.5'
                 }`}
