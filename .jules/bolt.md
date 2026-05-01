@@ -1,0 +1,3 @@
+## 2024-06-25 - Avoid refresh_all and new_with_refreshed_list in backend poll loops
+**Learning:** In the Tauri backend (`sysinfo` crate), using `sys.refresh_all()` is a significant performance bottleneck when the goal is only to poll cpu/memory metrics, since it queries users, network interfaces, components, and other data needlessly. Further, calling `Disks::new_with_refreshed_list()` allocates new heap objects each tick.
+**Action:** Always selectively refresh only needed metrics (e.g. `refresh_cpu_usage()`, `refresh_memory()`) and use a cached `Mutex<Disks>` and call `disks.refresh(true)` instead to mutate it in place.
