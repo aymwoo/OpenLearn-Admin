@@ -193,7 +193,7 @@ const applyDashboardData = (data: DashboardData) => {
 
   useEffect(() => {
     let mounted = true;
-    let interval: any;
+    let interval: ReturnType<typeof setInterval>;
 
     const fetchWSInfo = async () => {
       if (!configRef.current?.webServiceUrl) return;
