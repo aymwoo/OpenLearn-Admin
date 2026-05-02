@@ -15,6 +15,7 @@ use tauri::{command, Emitter, State, Window, Manager};
 
 struct AppState {
     system: Mutex<System>,
+    disks: Mutex<Disks>,
     is_syncing: Arc<Mutex<bool>>,
     current_progress: Arc<Mutex<FetchProgress>>,
 }
@@ -33,12 +34,17 @@ struct SystemInfo {
 #[command]
 fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
     let mut sys = state.system.lock().map_err(|e| format!("锁错误: {}", e))?;
-    sys.refresh_all();
+    // Bolt: Use specific refresh methods instead of refresh_all() for better performance
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
 
-    let disks = Disks::new_with_refreshed_list();
+    let mut disks_lock = state.disks.lock().map_err(|e| format!("锁错误: {}", e))?;
+    // Bolt: Use refresh(true) on cached Disks instance instead of re-instantiating Disks::new_with_refreshed_list()
+    disks_lock.refresh(true);
+
     let mut disk_total = 0;
     let mut disk_available = 0;
-    for disk in disks.list() {
+    for disk in disks_lock.list() {
         disk_total += disk.total_space();
         disk_available += disk.available_space();
     }
@@ -1654,6 +1660,7 @@ pub fn run() {
     if let Err(e) = tauri::Builder::default()
         .manage(AppState { 
             system: Mutex::new(System::new_all()),
+            disks: Mutex::new(Disks::new_with_refreshed_list()),
             is_syncing: Arc::new(Mutex::new(false)),
             current_progress: Arc::new(Mutex::new(FetchProgress {
                 stage: "idle".to_string(),
